@@ -528,14 +528,14 @@ def _locate(lists: dict, plan, keys) -> dict:
                         used[(kind, i)] = eid
                         break
         elif kind in ("image", "card", "chart", "diagram", "video"):
-            base = os.path.basename(item["path"])
-            for i, name in enumerate(pool, start=1):
-                if used.get((kind, i)):
-                    continue
-                if name and (name == base or base in name):
-                    out[eid] = ("image", i)
-                    used[("image", i)] = eid
-                    break
+            # 图片类按**创建顺序**定位：slide.images 的枚举顺序就是叠放顺序，
+            # 也就是我们 push 的顺序，所以第 n 个 = 池子里的第 n 个。
+            # 早期按文件名匹配，但两张配置相同的卡片会渲染出同一个 PNG 文件名，
+            # 导致匹配到别的卡片去（真实稿重建时整页错位）。
+            i = item.get("img_ordinal") or item.get("ordinal", 1)
+            if 1 <= i <= len(pool):
+                out[eid] = ("image", i)
+                used[("image", i)] = eid
         else:
             i = item["ordinal"]
             out[eid] = (kind, i)
@@ -747,11 +747,18 @@ def _apply_batch(deck, slide: int, bg, elements: list[dict], mode: str) -> dict:
     keys = _keys(normal)
     plan, ordinals = [], {"shape": 0, "table": 0}
     if bg:
-        plan.append({"id": "bg", "type": "image", "path": bg["path"], "box": [0, 0, 1920, 1080]})
+        plan.append({"id": "bg", "type": "image", "path": bg["path"],
+                     "ordinal": 1, "img_ordinal": 1, "box": [0, 0, 1920, 1080]})
+    img_ordinal = 1 if bg else 0
     for el in normal:
         ordinals[el["type"]] = ordinals.get(el["type"], 0) + 1
+        if el["type"] in ("image", "card", "chart", "diagram", "video"):
+            img_ordinal += 1
+        else:
+            img_ordinal = 0
         plan.append({"id": el["id"], "type": el["type"], "path": el.get("path"),
-                     "text": el["text"], "ordinal": ordinals[el["type"]], "box": el["box"]})
+                     "text": el["text"], "ordinal": ordinals[el["type"]],
+                     "img_ordinal": img_ordinal, "box": el["box"]})
 
     lists = _list_elements(deck.doc, slide)
     located = _locate(lists, plan, keys)
