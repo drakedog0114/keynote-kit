@@ -1,12 +1,16 @@
-"""信息图示例：泳道图 / 层级图 / 集成图，直接插入 Keynote。
+"""信息图示例：泳道图 / 层级图 / 集成图，渲染后插入 Keynote。
 
     python examples/03_diagrams.py
 """
 
-from pathlib import Path
+import pathlib
+import sys
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 
 from keynote_kit import Deck, diagrams
 
+Path = pathlib.Path
 OUT = Path("out")
 OUT.mkdir(exist_ok=True)
 

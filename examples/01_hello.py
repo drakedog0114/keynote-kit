@@ -3,10 +3,14 @@
     python examples/01_hello.py
 """
 
-from pathlib import Path
+import pathlib
+import sys
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 
 from keynote_kit import Deck
 
+Path = pathlib.Path
 OUT = Path("out")
 OUT.mkdir(exist_ok=True)
 
