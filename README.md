@@ -163,6 +163,27 @@ z-order, so a full-page image would cover them). Use `card` only for decorative 
 See [docs/rfc/0001-declarative-pages.md](docs/rfc/0001-declarative-pages.md) for the design,
 measurements and known limits.
 
+## Visual polish
+
+```python
+{"type": "image", "path": "photo.jpg", "box": [60, 160, 700, 350],
+ "style": {"radius": 40, "crop": "cover"}}     # rounded, cropped
+{"type": "text", "text": long_copy, "box": [80, 300, 760, 150],
+ "style": {"size": 42, "fit": True}}            # auto-shrink to fit
+{"type": "rich", "box": [100, 300, 900, 140], "link": "https://example.com",
+ "paragraphs": [{"align": "left", "runs": [{"text": "link", "size": 24}]}]}
+```
+
+```python
+from keynote_kit.animate import set_transition, set_opacity, bring_to_front
+set_transition(doc, slide, "magic move", duration=0.6)
+set_opacity(doc, slide, "image", 1, 0.4)
+bring_to_front(doc, slide, "image", 1, "/path/to/image.png")
+```
+
+Keynote has no crop, autoFit, z-index or hyperlink API — those are computed or
+pre-rendered locally. Build animations ("appear", "fly in") remain UI-only.
+
 ## Re-using a deck for another client
 
 Proposal decks get re-used — same structure, new client, new numbers. Import rather than rebuild:
@@ -226,6 +247,7 @@ Full tool catalogue and client configs: [docs/mcp-server.md](docs/mcp-server.md)
 | MCP server | [mcp-server.md](docs/mcp-server.md) | [中文](docs/mcp-server.zh-CN.md) | 41 tools, client configs, migration table |
 | Diagrams | [diagrams.md](docs/diagrams.md) | [中文](docs/diagrams.zh-CN.md) | Data specs for swimlane / hierarchy / integration |
 | **Deck compression** | [compression.md](docs/compression.md) | [中文](docs/compression.zh-CN.md) | Shrinking `.key` files safely, and the four traps |
+| **Visual polish** | [visuals.md](docs/visuals.md) | [中文](docs/visuals.zh-CN.md) | Rounded images, text auto-fit, z-order, transitions, hyperlinks |
 | **Client swap** | [client-swap.md](docs/client-swap.md) | [中文](docs/client-swap.zh-CN.md) | Re-use a deck for a different client: import, rewrite, re-brand, verify |
 | MCP integration | [mcp-integration.md](docs/mcp-integration.md) | — | Co-existing with other MCP servers |
 | Examples | [examples/](examples/) | — | hello deck, full demo, diagram gallery |

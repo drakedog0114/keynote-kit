@@ -37,6 +37,20 @@
 | 28 | 图片裁剪 / 遮罩 | ❌ | ❌ | ❌ |
 | 29 | 母版背景编辑 | ❌ 只读 | ❌ | ❌ |
 
+## 视觉打磨（2026-11 实测）
+
+| 能力 | 状态 | 做法 |
+|---|---|---|
+| 图片圆角 / 椭圆 / 裁剪 | **可用**（预渲染 PNG） | `style.radius` / `style.shape` / `style.crop` |
+| 文本溢出自动校正 | **可用** | `style.fit: true`（自动缩字号） |
+| z 序（提到顶层） | **可用**（图片） | 删掉重插；文字需按 spec 重建 |
+| 幻灯片转场 | **可用**（原生，12 种） | `set_transition(doc, slide, "magic move")` |
+| 透明度 / 旋转 | **可用**（原生） | `set_opacity`、`set_rotation` |
+| 超链接 | **可用**（走 RTF 域） | `rich` 元素加 `link` |
+| 构建动画（出现 / 飞入） | **只能走 UI** | `animations_ui` 模块，opt-in |
+
+细节见 [visuals.zh-CN.md](visuals.zh-CN.md)。自检：`python tools/test_capabilities.py`（14 项）。
+
 ## 怎么读这张表
 
 - 第 **6、7、11、12、13、15、16、24、25、26** 行是本项目存在的理由。

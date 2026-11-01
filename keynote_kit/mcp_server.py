@@ -485,6 +485,97 @@ def apply_deprecations() -> None:
 apply_deprecations()
 
 
+# ────────────────────────── 新增：动效 / 图像 / 链接 ──────────────────────────
+@tool("kk_set_transition", "设置幻灯片转场（Keynote 原生支持 12 种效果）",
+      S(doc=DOC, slide=SLIDE,
+        effect=P("string", "转场名称", True,
+                 enum=["no transition effect", "magic move", "shimmer", "sparkle",
+                       "swing", "object cube", "object flip", "object pop",
+                       "object push", "object revolve", "object zoom", "perspective"]),
+        duration=P("number", "时长（秒）", default=0.6),
+        delay=P("number", "延迟（秒）", default=0.0)))
+def _set_transition(a):
+    from .animate import set_transition
+    return set_transition(a["doc"], a["slide"], a["effect"],
+                          float(a.get("duration", 0.6)), float(a.get("delay", 0.0)))
+
+
+@tool("kk_get_transition", "读取某页的转场设置",
+      S(doc=DOC, slide=SLIDE))
+def _get_transition(a):
+    from .animate import get_transition
+    return get_transition(a["doc"], a["slide"])
+
+
+@tool("kk_set_element_style", "设置元素的不透明度 / 旋转角度",
+      S(doc=DOC, slide=SLIDE,
+        kind=P("string", "元素类型", True, enum=["text", "image", "shape", "table"]),
+        index=P("integer", "该类型内的序号（从 1 开始）", True),
+        opacity=P("number", "不透明度 0~1（1 = 完全不透明）"),
+        rotation=P("number", "旋转角度（度）")))
+def _set_element_style(a):
+    from .animate import set_opacity, set_rotation
+    out = {}
+    if a.get("opacity") is not None:
+        out["opacity"] = set_opacity(a["doc"], a["slide"], a["kind"],
+                                    int(a["index"]), float(a["opacity"]))
+    if a.get("rotation") is not None:
+        out["rotation"] = set_rotation(a["doc"], a["slide"], a["kind"],
+                                      int(a["index"]), float(a["rotation"]))
+    if not out:
+        raise ValueError("至少要给 opacity 或 rotation")
+    return out
+
+
+@tool("kk_prepare_image", "图片预加工：圆角 / 裁剪 / 椭圆，输出可直接插入的 PNG",
+      S(path=P("string", "原图路径", True),
+        w=P("number", "目标宽（pt）", True), h=P("number", "目标高（pt）", True),
+        radius=P("integer", "圆角半径（px），0 = 不处理", default=0),
+        shape=P("string", "形状", default="rect", enum=["rect", "ellipse"]),
+        crop=P("string", "裁剪方式", default="none",
+               enum=["none", "cover", "contain"]),
+        focus=P("array", "裁剪焦点 [x, y]，0~1", default=[0.5, 0.5])))
+def _prepare_image(a):
+    from .imaging import prepare_image
+    return {"path": prepare_image(a["path"], [0, 0, a["w"], a["h"]],
+                                  radius=int(a.get("radius", 0)),
+                                  shape=a.get("shape", "rect"),
+                                  crop=a.get("crop", "none"),
+                                  focus=tuple(a.get("focus", (0.5, 0.5))))}
+
+
+@tool("kk_fit_text", "估算文字实际占位，判断是否溢出并给出建议字号",
+      S(text=P("string", "文字", True),
+        w=P("number", "文本框宽（pt）", True), h=P("number", "文本框高（pt）", True),
+        size=P("number", "字号", True),
+        font=P("string", "字体名（serif/其它）"),
+        lineSpacing=P("number", "行距倍数", default=1.25),
+        mode=P("string", "校正方式", default="shrink", enum=["shrink", "grow"])))
+def _fit_text(a):
+    from .imaging import fit_text
+    return fit_text(a["text"], [0, 0, a["w"], a["h"]], size=float(a["size"]),
+                   font=a.get("font"),
+                   line_spacing=float(a.get("lineSpacing", 1.25)),
+                   mode=a.get("mode", "shrink"))
+
+
+@tool("kk_element_order", "列出页面元素的叠放顺序（判断谁盖住了谁）",
+      S(doc=DOC, slide=SLIDE))
+def _element_order(a):
+    from .animate import element_order
+    return element_order(a["doc"], a["slide"])
+
+
+@tool("kk_bring_to_front", "把某个图片提到最上层（删掉后重新插入）",
+      S(doc=DOC, slide=SLIDE,
+        index=P("integer", "图片序号（从 1 开始）", True),
+        path=P("string", "该图片在磁盘上的原始路径", True)))
+def _bring_to_front(a):
+    from .animate import bring_to_front
+    return bring_to_front(a["doc"], a["slide"], "image", int(a["index"]), a["path"])
+
+
+
 def main() -> int:
     print(f"keynote-kit MCP server v{__version__} · {len(TOOLS)} tools", file=sys.stderr)
     for line in sys.stdin:

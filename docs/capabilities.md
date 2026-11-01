@@ -39,6 +39,20 @@ Legend: ✅ works · ⚠️ works with a caveat · ❌ not possible
 | 27 | Image crop / mask | ❌ | ❌ | ❌ |
 | 28 | Master slide background | ❌ read-only | ❌ | ❌ |
 
+## Visual polish (verified 2026-11)
+
+| Capability | Status | How |
+|---|---|---|
+| Image rounded corners / ellipse / crop | **works** (pre-rendered PNG) | `style.radius` / `style.shape` / `style.crop` |
+| Text overflow auto-fit | **works** | `style.fit: true` (shrinks the font size) |
+| z-order (bring to front) | **works** (images) | delete + re-insert; text needs a spec rebuild |
+| Slide transitions | **works** (native, 12 effects) | `set_transition(doc, slide, "magic move")` |
+| Opacity / rotation | **works** (native) | `set_opacity`, `set_rotation` |
+| Hyperlinks | **works** (via RTF field) | `link` on a `rich` element |
+| Build animations (appear / fly in) | **UI only** | `animations_ui` module, opt-in |
+
+Details: [visuals.md](visuals.md). Self-check: `python tools/test_capabilities.py` (14 checks).
+
 ## Reading the table
 
 - **Rows 6, 7, 11, 12, 13, 15, 16, 24, 25** are the reason this project exists.

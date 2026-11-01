@@ -127,3 +127,26 @@ K.export(d, { to: Path(p), as: "Microsoft PowerPoint" })  // 正常
 `make new document` 会用主题默认版式建一页。删掉最后剩下的那一页，Keynote 会自动再补一页。
 
 **解法**：先把内容页都建好，最后再 `remove_slide(1)`。
+
+## 文本样式必须作用在刚创建的那个对象上
+
+`slide.textItems[slide.textItems.length - 1]` **不是**你刚 push 的那个元素——
+JXA 枚举时，母版占位符排在 push 进去的元素之后，用下标取样式会静默套到占位符上。
+
+```javascript
+const ti = K.TextItem({ objectText: el.text });
+slide.textItems.push(ti);
+styleParas(ti, st);          // 用局部引用设样式，不要用集合下标
+```
+
+这是 `tools/test_capabilities.py` 查出来的：同页两个文本元素时，两个都变成了同一个默认字号。
+
+## opacity 是百分比，不是小数
+
+Keynote 的 `opacity` 属性取值 0~100。填 `0.4` 等于 0.4% 不透明（肉眼全白）。
+`keynote_kit.animate.set_opacity` 收 0~1 并自动换算。
+
+## Keynote 会丢弃 HYPERLINK 域之后的文字
+
+粘贴 RTF 时，排在 `{\field ... HYPERLINK ...}` 之后的内容会被静默丢弃。
+链接必须是**该段最后一个 run**。`build_rtf` 现在直接报错，不会让文字凭空消失。

@@ -56,11 +56,24 @@ def build_rtf(paragraphs: list[dict], default_size: float = 18) -> str:
     for para in paragraphs:
         align = ALIGN_CODE.get(para.get("align", "left"), "ql")
         chunks = [f"\\pard\\{align}\\sb0\\sa0"]
-        for run in para.get("runs", []):
+        runs = para.get("runs", [])
+        for ri, run in enumerate(runs):
             size = round(float(run.get("size", default_size)) * 2)      # RTF 半磅
-            chunks.append(f"{font_id(run.get('font'))}\\fs{size}{color_id(run.get('color'))}"
-                          + ("\\b" if run.get("bold") else "")
-                          + " " + _rtf_escape(run.get("text", "")) + "\\b0")
+            head = (f"{font_id(run.get('font'))}\\fs{size}{color_id(run.get('color'))}"
+                    + ("\\b" if run.get("bold") else "") + " ")
+            text = _rtf_escape(run.get("text", ""))
+            link = run.get("link")
+            if link:
+                # HYPERLINK 域：粘贴后 Keynote 会生成真正的链接。
+                # 注意：Keynote 会**丢弃域之后的文字**，所以链接必须是该段最后一个 run。
+                if ri != len(runs) - 1:
+                    raise ValueError(
+                        "链接必须放在段落最后一个 run：Keynote 会丢弃 HYPERLINK 域之后的文字")
+                chunks.append(
+                    "{\\field{\\*\\fldinst{HYPERLINK \"" + link.replace('"', '') + "\"}}"
+                    "{\\fldrslt " + head + text + "}}}")
+            else:
+                chunks.append(head + text + "\\b0")
         body.append("".join(chunks) + "\\par")
 
     fonttbl = "".join(

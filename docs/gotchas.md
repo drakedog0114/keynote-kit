@@ -137,3 +137,29 @@ Also note the call form: `app.export(doc, {...})` is more reliable than `doc.exp
 
 `make new document` creates a slide using the theme's default layout. Deleting the last remaining
 slide simply recreates it. Add your content pages first, then `remove_slide(1)`.
+
+## Text styling must target the object you just created
+
+`slide.textItems[slide.textItems.length - 1]` is **not** the element you just pushed —
+JXA enumerates the theme's placeholder text items after the pushed ones, so styling by
+index silently applies the style to a placeholder instead.
+
+```javascript
+const ti = K.TextItem({ objectText: el.text });
+slide.textItems.push(ti);
+styleParas(ti, st);          // style the local reference, not a collection index
+```
+
+Found by `tools/test_capabilities.py`: with the index-based version, two text elements on
+one slide both ended up at the same (default) size.
+
+## Opacity is a percentage, not a fraction
+
+Keynote's `opacity` property is 0–100. Setting `0.4` makes the element 0.4% opaque
+(visually invisible). `keynote_kit.animate.set_opacity` takes 0–1 and converts.
+
+## Keynote drops text after a HYPERLINK field
+
+When pasting RTF, anything placed after a `{\field ... HYPERLINK ...}` run is silently
+discarded. A link must be the **last** run of its paragraph. `build_rtf` now raises an
+error instead of losing the text.

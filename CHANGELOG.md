@@ -34,6 +34,35 @@ Declarative page compiler, in-place client swap, safe deck compression.
   `zipfile` must use `metadata_encoding="utf-8"`; `.png` entries must stay PNG, and palette-mode
   PNGs do not render after a rewrite.
 
+## [0.3.0] - 2026-11-02
+
+Visual polish: rounding, auto-fit, z-order, transitions, hyperlinks — plus a styling bug fix.
+
+### Added
+- `keynote_kit/imaging.py`: image rounding / ellipse / crop (pre-rendered PNG) and text
+  measurement + auto-fit. Keynotes has no crop or autoFit API, so both are computed locally.
+  Wired into `kk_page` as `style.radius` / `style.shape` / `style.crop` / `style.fit`.
+- `keynote_kit/animate.py`: slide transitions (12 effects, native), element opacity and
+  rotation (native), element order inspection and bring-to-front.
+- `keynote_kit/animations_ui.py`: opt-in UI automation for build animations
+  (canvas geometry → click to select → 格式 → 拷贝/粘贴动画).
+- Hyperlinks: the RTF `HYPERLINK` field is imported by Keynote as a real link, exposed as
+  `link` on `rich` elements.
+- New MCP tools: `kk_set_transition`, `kk_get_transition`, `kk_set_element_style`,
+  `kk_prepare_image`, `kk_fit_text`, `kk_element_order`, `kk_bring_to_front` (51 total).
+- `tools/test_capabilities.py`: self-check with 14 assertions against a live Keynote.
+- Docs: `visuals.md` / `visuals.zh-CN.md`.
+
+### Fixed
+- **Text styling was applied to the wrong object.** `slide.textItems[length - 1]` is not the
+  element just pushed — JXA enumerates the theme's placeholder text items after the pushed
+  ones, so styles landed on a placeholder. Text elements on the same slide all ended up with
+  the same (default) size. Now the style is applied to the local reference.
+- `set_opacity` takes 0–1 and converts to Keynote's 0–100 percentage (setting `0.4`
+  directly made the element invisible).
+- `build_rtf` rejects a hyperlink that is not the last run of its paragraph — Keynote
+  silently drops everything after a `HYPERLINK` field.
+
 ## [Unreleased]
 
 ### Planned

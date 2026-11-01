@@ -253,11 +253,29 @@ def normalise(spec: dict):
             if kind != "text":
                 raise SpecError(f"元素 {eid}：slot 只能用于 text")
             item["slot"] = str(raw["slot"])
+        if raw.get("link"):
+            # 超链接：走 RTF 通道（Keynote 只认 RTF 的 HYPERLINK 域）
+            if kind != "rich":
+                raise SpecError(
+                    f"元素 {eid}：link 目前只支持 rich（文本框），"
+                    "普通 text 元素请改用 rich + paragraphs")
+            item["link"] = str(raw["link"])
         if kind == "image":
             path = raw.get("path", "")
             if not path or not os.path.exists(path):
                 raise SpecError(f"图片不存在：{path}")
             item["path"] = os.path.abspath(path)
+            # 圆角 / 裁剪 / 椭圆：Keynote 没有这些 API，预渲染成 PNG 再插入
+            st = item["style"]
+            if st.get("radius") or st.get("shape") or st.get("crop"):
+                from .imaging import prepare_image
+                item["path"] = prepare_image(
+                    item["path"], item["box"],
+                    radius=int(st.get("radius", 0)),
+                    shape=st.get("shape", "rect"),
+                    crop=st.get("crop", "none"),
+                    focus=tuple(st.get("focus", (0.5, 0.5))),
+                )
         if kind == "video":
             path = raw.get("path", "")
             if not path or not os.path.exists(path):
@@ -268,6 +286,30 @@ def normalise(spec: dict):
             if not paras:
                 raise SpecError(f"rich 元素 {eid} 缺少 paragraphs")
             item["paragraphs"] = paras
+            if item.get("link"):
+                # 链接必须放在该段最后一个 run：Keynote 会丢掉域之后的文字
+                for pi, para in enumerate(paras):
+                    runs = para.get("runs") or []
+                    for ri, run in enumerate(runs):
+                        if run.get("link") and ri != len(runs) - 1:
+                            raise SpecError(
+                                f"rich 元素 {eid} 第 {pi + 1} 段的链接必须在最后一个 run，"
+                                "否则 Keynote 会丢弃其后的文字")
+        if kind == "text":
+            # 文本溢出自动校正：Keynote 没有 autoFit 接口，先量再缩
+            st = item["style"]
+            if st.get("fit"):
+                from .imaging import fit_text
+                size = float(st.get("size", 18))
+                res = fit_text(
+                    item["text"], item["box"], size=size,
+                    font=st.get("font"), line_spacing=float(st.get("lineSpacing", 1.25)),
+                    min_size=float(st.get("minSize", 8)),
+                    mode=st.get("fitMode", "shrink"),
+                )
+                if res["changed"]:
+                    st["size"] = res["size"]
+                item["fit"] = res
         if kind == "chart":
             item["path"] = chart_png(raw.get("chart") or {})
         if kind == "diagram":
@@ -335,11 +377,13 @@ function run(argv) {
   for (const el of p.elements) {
     const st = el.style || {};
     if (el.type === 'text') {
-      slide.textItems.push(K.TextItem({ objectText: el.text }));
-      styleParas(slide.textItems[slide.textItems.length - 1], st);
+      const ti = K.TextItem({ objectText: el.text });
+      slide.textItems.push(ti);
+      styleParas(ti, st);
     } else if (el.type === 'shape') {
-      slide.shapes.push(K.Shape({ objectText: el.text }));
-      styleParas(slide.shapes[slide.shapes.length - 1], st);
+      const sh = K.Shape({ objectText: el.text });
+      slide.shapes.push(sh);
+      styleParas(sh, st);
     } else if (['image', 'card', 'chart', 'diagram', 'video'].indexOf(el.type) >= 0) {
       slide.images.push(K.Image({ file: Path(el.path) }));
     } else if (el.type === 'table') {
@@ -607,7 +651,23 @@ def clear_slide(deck, slide: int) -> int:
 def apply_page(deck, slide: int, spec: dict, mode: str = "replace") -> dict:
     bg, elements = normalise(spec)
     if any(el["type"] == "rich" for el in elements):
-        return _apply_sequential(deck, slide, bg, elements, mode)
+        result = _apply_sequential(deck, slide, bg, elements, mode)
+    else:
+        result = _apply_batch(deck, slide, bg, elements, mode)
+    # 页面级转场：Keynote 原生支持 12 种效果
+    transition = spec.get("transition")
+    if transition:
+        from .animate import set_transition
+        tr = transition if isinstance(transition, dict) else {"effect": transition}
+        result["transition"] = set_transition(
+            deck.doc, slide,
+            effect=tr.get("effect", "object push"),
+            duration=float(tr.get("duration", 0.6)),
+            delay=float(tr.get("delay", 0.0)))
+    return result
+
+
+def _apply_batch(deck, slide: int, bg, elements: list[dict], mode: str) -> dict:
     if slide > deck.slide_count():
         raise SpecError(f"第 {slide} 页不存在（当前 {deck.slide_count()} 页）")
 
@@ -699,7 +759,19 @@ def _apply_sequential(deck, slide: int, bg, elements: list[dict], mode: str) -> 
 
     rich = [el for el in elements if el["type"] == "rich"]
     for el in rich:
-        paste_rich_text(deck.doc, slide, el["paragraphs"], el["box"])
+        paras = el["paragraphs"]
+        if el.get("link"):
+            # 整段挂链接：Keynote 只认最后一个 run 带域，所以把链接挂到末位 run
+            paras = [dict(p) for p in paras]
+            last = paras[-1]
+            runs = list(last.get("runs") or [])
+            if runs:
+                runs[-1] = dict(runs[-1], link=el["link"])
+                last["runs"] = runs
+            else:
+                last["runs"] = [{"text": last.get("text", ""), "link": el["link"]}]
+            paras[-1] = last
+        paste_rich_text(deck.doc, slide, paras, el["box"])
 
     return {"slide": slide, "elements": len(batch) + len(rich),
             "background": bool(bg), "revision": "seq", "verified": True,
