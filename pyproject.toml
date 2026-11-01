@@ -35,8 +35,8 @@ keynote-kit = "keynote_kit.cli:main"
 keynote-kit-mcp = "keynote_kit.mcp_server:main"
 
 [project.urls]
-Homepage = "https://github.com/<you>/keynote-kit"
-Issues = "https://github.com/<you>/keynote-kit/issues"
+Homepage = "https://github.com/drakedog0114/keynote-kit"
+Issues = "https://github.com/drakedog0114/keynote-kit/issues"
 
 [tool.setuptools.packages.find]
 include = ["keynote_kit*"]

@@ -65,7 +65,7 @@ native tables with geometry, chart rendering, and page-level diagrams**.
 ## Install
 
 ```bash
-git clone https://github.com/<you>/keynote-kit.git
+git clone https://github.com/drakedog0114/keynote-kit.git
 cd keynote-kit
 python3 -m venv .venv && source .venv/bin/activate
 pip install -e ".[charts,diagrams]"

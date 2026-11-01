@@ -46,7 +46,7 @@ Studio 15.4 做了 25 项能力测试，反复出现三类问题：
 ## 安装
 
 ```bash
-git clone https://github.com/<you>/keynote-kit.git
+git clone https://github.com/drakedog0114/keynote-kit.git
 cd keynote-kit
 python3 -m venv .venv && source .venv/bin/activate
 pip install -e ".[all]"
