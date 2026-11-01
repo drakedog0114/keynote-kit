@@ -12,6 +12,7 @@ from __future__ import annotations
 import os
 import subprocess
 import tempfile
+import time
 
 from .runner import applescript, esc_text
 
@@ -100,35 +101,49 @@ def paste_rich_text(doc: str, slide: int, paragraphs: list[dict], box: list[floa
         path = fh.name
     x, y, w, h = (int(round(v)) for v in box)
     try:
-        applescript(f'''
+        # 冷启动时 Keynote 可能还没拿到前台，粘贴会落到别的 app 上，
+        # 所以这里：激活 → 等待 → 粘贴 → 校验选中项，失败重试一次。
+        last = ""
+        for attempt in range(2):
+            try:
+                last = applescript(f'''
 tell application "Keynote"
   activate
+  delay 0.25
   tell document {esc_text(doc)} to set current slide to slide {slide}
 end tell
-delay 0.12
+delay 0.2
 set theRTF to (read (POSIX file "{path}") as «class RTF »)
 set the clipboard to theRTF
 tell application "Keynote" to activate
-delay 0.1
+delay 0.25
 tell application "System Events"
   keystroke "v" using command down
 end tell
-delay 0.3
+delay 0.45
 tell application "Keynote"
   tell document {esc_text(doc)}
     set sel to selection
-    if (count of sel) > 0 then
-      set tgt to item 1 of sel
-    else
-      set tgt to text item (count of text items of slide {slide} of it) of slide {slide} of it
-    end if
-    set width of tgt to {w}
-    set height of tgt to {h}
-    set position of tgt to {{{x}, {y}}}
+    if (count of sel) is 0 then return "NO_SELECTION"
+    set tgt to item 1 of sel
+    try
+      set width of tgt to {w}
+      set height of tgt to {h}
+      set position of tgt to {{{x}, {y}}}
+    on error
+      return "BAD_TARGET"
+    end try
     set q to position of tgt
     return ((item 1 of q) as text) & "," & ((item 2 of q) as text)
   end tell
 end tell''', timeout=timeout)
+            except Exception as exc:  # noqa: BLE001
+                last = f"ERR {exc}"
+            if last and "NO_SELECTION" not in last and "BAD_TARGET" not in last:
+                break
+            time.sleep(0.6)
+        if "NO_SELECTION" in last or "BAD_TARGET" in last or last.startswith("ERR"):
+            raise RuntimeError(f"RTF 粘贴失败：{last}")
     finally:
         os.unlink(path)
     return {"box": [x, y, w, h], "pasted": True}

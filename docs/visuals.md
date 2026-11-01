@@ -71,6 +71,11 @@ bring_to_front(doc, slide, "image", 1, "/path/to/image.png")   # delete + re-ins
 For text elements, rebuild the page from its spec instead — the element order in the spec
 *is* the z-order.
 
+The inspector's **Arrange** tab also has `Front` / `Back` / `Forward` / `Backward` buttons
+that work for text, and `Group` / `Ungroup`. Automating them was attempted but the
+accessibility tree of the inspector is slow enough that enumeration times out, so they stay
+a manual two-click operation.
+
 ## 4. Transitions, opacity, rotation — native
 
 These were always in the API; they were simply never used.
