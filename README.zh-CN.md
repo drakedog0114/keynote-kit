@@ -90,6 +90,25 @@ python -m keynote_kit.cli export --doc 未命名 --fmt images --out ./out
 
 *以上页面均由 `examples/02_demo_deck.py` 生成。*
 
+## MCP 服务
+
+`keynote-kit` 自带**完整**的 MCP 服务，**不需要再装 iwork-mcp 或任何其他 MCP**。41 个工具覆盖
+文档、页面、文本、形状、图片、表格、图表、信息图、版式、备注、导出与放映控制。
+
+```bash
+python -m keynote_kit.mcp_server
+```
+
+```json
+{
+  "mcpServers": {
+    "keynote-kit": { "command": "python3", "args": ["-m", "keynote_kit.mcp_server"] }
+  }
+}
+```
+
+完整工具清单与各客户端配置：[docs/mcp-server.md](docs/mcp-server.md)。
+
 ## 文档
 
 | 文档 | 内容 |

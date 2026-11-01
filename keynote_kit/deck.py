@@ -363,6 +363,7 @@ function run(argv) {
     def export(self, path: str, fmt: str = "images") -> str:
         """fmt: images | PowerPoint | PDF。用 JXA 导出（AppleScript 路径在本版会报 -6）。"""
         target = os.path.abspath(path)
+        os.makedirs(os.path.dirname(target) or ".", exist_ok=True)
         mapping = {"images": "slide images", "pptx": "Microsoft PowerPoint",
                    "powerpoint": "Microsoft PowerPoint", "pdf": "PDF"}
         as_type = mapping.get(fmt.lower(), fmt)
@@ -395,6 +396,7 @@ function run(argv) {
         from PIL import Image
 
         target = os.path.abspath(path)
+        os.makedirs(os.path.dirname(target) or ".", exist_ok=True)
         tmp = tempfile.mkdtemp(prefix="keynote-pdf-")
         try:
             self.export(tmp, "images")
@@ -412,6 +414,7 @@ function run(argv) {
 
     def save(self, path: str) -> str:
         target = os.path.abspath(path)
+        os.makedirs(os.path.dirname(target) or ".", exist_ok=True)
         jxa(r"""
 function run(argv) {
   const p = JSON.parse(argv[0]);

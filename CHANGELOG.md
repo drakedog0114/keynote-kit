@@ -14,6 +14,10 @@ versioning follows [Semantic Versioning](https://semver.org/).
 ## [0.1.0] — 2026-11-01
 
 ### Added
+- **Complete MCP server** (`python -m keynote_kit.mcp_server`, 41 tools): documents, pages,
+  text, shapes, images, tables, charts, diagrams, layout, notes, export, slideshow.
+  No dependency on iwork-mcp.
+- `ops` module: document/slide/table/layout helpers used by the server.
 - `Deck` high-level API: create, add slides, text boxes, shapes, images, native tables,
   backgrounds, export (PNG / PowerPoint / PDF), save.
 - `verify()` post-write checks to catch silent failures.

@@ -32,6 +32,7 @@ dev = ["pytest>=8", "ruff>=0.6"]
 
 [project.scripts]
 keynote-kit = "keynote_kit.cli:main"
+keynote-kit-mcp = "keynote_kit.mcp_server:main"
 
 [project.urls]
 Homepage = "https://github.com/<you>/keynote-kit"
