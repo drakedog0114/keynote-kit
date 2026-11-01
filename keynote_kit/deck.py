@@ -171,6 +171,24 @@ class Deck:
             end tell''')
         return n
 
+    def remove_slide(self, slide: int) -> int:
+        """删除一页，返回剩余页数。Keynote 至少保留一页。"""
+        applescript(f'''
+            tell application "Keynote"
+              delete slide {slide} of document {esc_text(self.doc)}
+            end tell''')
+        return self.slide_count()
+
+    def duplicate_slide(self, slide: int) -> int:
+        """复制一页（副本插在其后），返回总页数。"""
+        applescript(f'''
+            tell application "Keynote"
+              tell document {esc_text(self.doc)}
+                duplicate slide {slide} of it to after slide {slide} of it
+              end tell
+            end tell''')
+        return self.slide_count()
+
     # ── 元素创建 ────────────────────────────────────────────
     def _create(self, kind: str, slide: int, **kw) -> dict:
         payload = {"doc": self.doc, "slide": slide, "kind": kind, **kw}
@@ -225,6 +243,29 @@ class Deck:
               end tell
             end tell''')
         return {"rows": rows, "cols": cols, "cells": r.get("cells", 0)}
+
+    def add_line(self, slide: int, x1: float, y1: float, x2: float, y2: float) -> dict:
+        """直线连接线。`make new line` 在 15.x 会报错，这里用 JXA 构造器。"""
+        jxa(r"""
+function run(argv) {
+  const p = JSON.parse(argv[0]);
+  const K = Application('Keynote');
+  const s = K.documents.byName(p.doc).slides[p.slide - 1];
+  s.lines.push(K.Line({ startPoint: [p.x1, p.y1], endPoint: [p.x2, p.y2] }));
+  return JSON.stringify({ lines: s.lines.length });
+}
+""", {"doc": self.doc, "slide": slide, "x1": x1, "y1": y1, "x2": x2, "y2": y2})
+        return {"kind": "line"}
+
+    def set_notes(self, slide: int, notes: str) -> dict:
+        """设置演讲者备注。"""
+        applescript(f'''
+            tell application "Keynote"
+              tell document {esc_text(self.doc)}
+                set presenter notes of slide {slide} of it to {esc_text(notes)}
+              end tell
+            end tell''')
+        return {"slide": slide, "notes": len(notes)}
 
     def set_background(self, slide: int, path: str, w: float = 1920, h: float = 1080) -> dict:
         """整页背景图。必须在该页还没有其他元素（或在最早期）时调用，靠插入顺序保证在最底层。"""
@@ -322,18 +363,51 @@ function run(argv) {
     def export(self, path: str, fmt: str = "images") -> str:
         """fmt: images | PowerPoint | PDF。用 JXA 导出（AppleScript 路径在本版会报 -6）。"""
         target = os.path.abspath(path)
-        mapping = {"images": "slide images", "pptx": "PowerPoint",
-                   "powerpoint": "PowerPoint", "pdf": "PDF"}
+        mapping = {"images": "slide images", "pptx": "Microsoft PowerPoint",
+                   "powerpoint": "Microsoft PowerPoint", "pdf": "PDF"}
         as_type = mapping.get(fmt.lower(), fmt)
         jxa(r"""
 function run(argv) {
   const p = JSON.parse(argv[0]);
   const K = Application('Keynote');
   const d = K.documents.byName(p.doc);
-  d.export({ to: Path(p.to), as: p.asType });
+  K.export(d, { to: Path(p.to), as: p.asType });
   return JSON.stringify({ exported: true, to: p.to });
 }
 """, {"doc": self.doc, "to": target, "asType": as_type})
+        # Keynote 有时会静默什么都不导出，必须校验产物
+        if fmt.lower() in ("images", "png", "slide images"):
+            if not (os.path.isdir(target) and any(os.scandir(target))):
+                raise KeynoteError(f"导出未产生任何文件：{target}")
+        elif not (os.path.exists(target) and os.path.getsize(target) > 0):
+            raise KeynoteError(f"导出失败，文件不存在或为空：{target}")
+        return target
+
+    def export_pdf(self, path: str) -> str:
+        """可靠的 PDF：先导出逐页 PNG，再用 Pillow 合成。
+
+        Keynote 原生 PDF 导出在 Creator Studio 版上会「成功」但产出空白页，
+        所以这里绕开原生导出。
+        """
+        import shutil
+        import tempfile
+
+        from PIL import Image
+
+        target = os.path.abspath(path)
+        tmp = tempfile.mkdtemp(prefix="keynote-pdf-")
+        try:
+            self.export(tmp, "images")
+            files = sorted(f for f in os.listdir(tmp) if f.lower().endswith(".png"))
+            if not files:
+                raise KeynoteError("导出 PNG 失败，无法合成 PDF")
+            pages = [Image.open(os.path.join(tmp, f)).convert("RGB") for f in files]
+            pages[0].save(target, "PDF", save_all=True, append_images=pages[1:], resolution=144)
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+        if not (os.path.exists(target) and os.path.getsize(target) > 1024):
+            raise KeynoteError(f"PDF 生成失败：{target}")
         return target
 
     def save(self, path: str) -> str:
@@ -347,4 +421,6 @@ function run(argv) {
   return JSON.stringify({ saved: true, to: p.to });
 }
 """, {"doc": self.doc, "to": target})
+        if not (os.path.exists(target) and os.path.getsize(target) > 0):
+            raise KeynoteError(f"保存失败，文件不存在或为空：{target}")
         return target

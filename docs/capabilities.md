@@ -23,12 +23,14 @@ Legend: ✅ works · ⚠️ works with a caveat · ❌ not possible
 | 15 | **Charts** | ❌ no `chart` class | ❌ | ✅ (matplotlib) |
 | 16 | **Diagrams (swimlane / hierarchy)** | ❌ | ❌ | ✅ (Pillow) |
 | 17 | Video insertion | ❌ `make new movie` hangs | ⚠️ via image-class trick | ⚠️ same trick |
-| 18 | Slide transitions | ✅ | ✅ | ❌ not wrapped yet |
-| 19 | Speaker notes | ✅ | ✅ | ❌ not wrapped yet |
-| 20 | Duplicate / move / skip / delete slide | ✅ | ✅ | ⚠️ partial |
+| 17b | Straight lines | ❌ `make new line` fails | ✅ | ✅ (JXA `K.Line`) |
+| 18 | Slide transitions | ✅ (enum constant) | ✅ | ❌ not wrapped (enum cannot be passed as string) |
+| 19 | Speaker notes | ✅ | ✅ | ✅ |
+| 20 | Duplicate / delete slide | ✅ | ✅ | ✅ |
+| 20b | Move / skip slide | ✅ | ✅ | ❌ |
 | 21 | Export PNG sequence | ✅ JXA | ✅ | ✅ (JXA) |
-| 22 | Export PowerPoint | ✅ JXA | ✅ | ⚠️ intermittent `-1700` |
-| 23 | Export PDF | ❌ `-6` on Creator Studio | ⚠️ Quick Look, 1 page only | ❌ |
+| 22 | Export PowerPoint | ✅ JXA (`Microsoft PowerPoint`) | ✅ | ✅ |
+| 23 | Export PDF | ❌ `-6`, or **blank pages** when it "succeeds" | ⚠️ Quick Look, 1 page only | ✅ `export_pdf()` (PNG → assembled) |
 | 24 | **Error on missing image** | n/a | ❌ returns `added: true` | ✅ raises |
 | 25 | **Verify after write** | n/a | ❌ | ✅ `verify()` |
 | 26 | Animations / builds | ❌ | ❌ (UI only) | ❌ |
@@ -40,8 +42,9 @@ Legend: ✅ works · ⚠️ works with a caveat · ❌ not possible
 - **Rows 6, 7, 11, 12, 13, 15, 16, 24, 25** are the reason this project exists.
 - Rows 5–7 overlap: keynote-kit deliberately avoids placeholders and always emits real text boxes,
   because placeholder geometry does not reflow when the canvas size changes.
-- Rows 21–23: export is the weakest area of Keynote's scripting bridge on Creator Studio builds.
-  PowerPoint export works most of the time via JXA; PDF export is effectively broken natively.
+- Rows 21–23: export is the weakest area on Creator Studio builds. PowerPoint works through JXA
+  **only** with the `Microsoft PowerPoint` enum; native PDF either throws `-6` or silently writes blank
+  pages, so `export_pdf()` composes the PDF from per-slide PNGs instead.
 
 ## When to use what
 

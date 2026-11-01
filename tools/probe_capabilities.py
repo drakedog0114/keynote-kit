@@ -9,8 +9,10 @@
 
 from __future__ import annotations
 
+import pathlib
 import sys
-import traceback
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 
 from keynote_kit import Deck
 from keynote_kit.runner import applescript, jxa
@@ -38,9 +40,7 @@ def main() -> int:
         check("文本框 + 坐标", lambda: deck.add_text(slide, "probe", 120, 200, 600, 80,
                                                 size=40, color="#1F2329"))
         check("形状 + 坐标", lambda: deck.add_shape(slide, "chip", 120, 400, 240, 90))
-        check("线条", lambda: applescript(
-            f'tell application "Keynote" to tell document {deck.doc!r} to '
-            f'make new line at slide 2 with properties {{start point:{{100, 600}}, end point:{{800, 600}}}}'))
+        check("线条", lambda: deck.add_line(slide, 100, 600, 800, 600))
         check("表格", lambda: deck.add_table(slide, [["a", "b"], ["1", "2"]], 120, 700, 700, 160))
         check("读回元素", lambda: f"count={deck.verify(slide)['count']}")
 

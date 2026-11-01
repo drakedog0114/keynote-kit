@@ -112,3 +112,26 @@ There is no `fill color` on `shape`; only `opacity`. Colourful panels must be in
 `SongtiSC-Bold` raises `-1700`. Working names observed on this system:
 `Songti SC Bold`, `STSongti-SC-Regular`, `PingFangSC-Semibold`, `HiraginoSansGB-W6`.
 An invalid name fails at *style* time, after the element was created — hence always verify.
+
+## 11. Export silently produces nothing — or blank pages
+
+`export` can return without raising while writing no file at all. And when PDF export *does*
+succeed, it can produce a file with the right page count but **blank pages**.
+
+**Workaround**: after every export, assert the artefact exists and is non-trivial
+(`keynote_kit` does this and raises `KeynoteError`). For PDF, do not trust the native path —
+`Deck.export_pdf()` renders per-slide PNGs and assembles them with Pillow.
+
+## 12. The PowerPoint enum is `Microsoft PowerPoint`
+
+```javascript
+d.export({ to: Path(p), as: "PowerPoint" })            // -1700 cannot convert
+K.export(d, { to: Path(p), as: "Microsoft PowerPoint" }) // works
+```
+
+Also note the call form: `app.export(doc, {...})` is more reliable than `doc.export({...})`.
+
+## 13. A new document always ships with one template slide
+
+`make new document` creates a slide using the theme's default layout. Deleting the last remaining
+slide simply recreates it. Add your content pages first, then `remove_slide(1)`.

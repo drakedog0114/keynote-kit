@@ -25,6 +25,13 @@ versioning follows [Semantic Versioning](https://semver.org/).
 - `scripts/mcp_client.mjs` and `scripts/mcp_batch.mjs`: minimal MCP stdio drivers.
 - Documentation: capability matrix, gotcha catalogue, MCP integration notes.
 
+- `add_line()` — straight connectors via JXA `K.Line` (`make new line` is broken).
+- `set_notes()` — per-slide speaker notes.
+- `remove_slide()` / `duplicate_slide()`.
+- `export_pdf()` — reliable PDF by composing per-slide PNGs.
+- Export and save now **verify the artefact** and raise `KeynoteError` when Keynote
+  silently writes nothing.
+
 ### Fixed (workarounds for Keynote scripting defects)
 - Element geometry now applied via AppleScript after creation, because JXA position
   setters are silently discarded.
@@ -34,4 +41,6 @@ versioning follows [Semantic Versioning](https://semver.org/).
   multiple images.
 - Creation routed through JXA class constructors, because `make new image/table/movie`
   fail with `-10000` in Keynote 15.x.
-- Export routed through JXA, because the AppleScript export path fails with `-6`.
+- Export routed through JXA with the `Microsoft PowerPoint` enum (plain `PowerPoint` raises `-1700`).
+- Native PDF export replaced by PNG composition: the native path either throws `-6` or writes
+  blank pages.

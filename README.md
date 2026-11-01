@@ -48,6 +48,9 @@ native tables with geometry, chart rendering, and page-level diagrams**.
 | **Tables** | native editable tables — create, fill, position, size |
 | **Charts** | bar / line / donut rendered with matplotlib, transparent background |
 | **Diagrams** | swimlane, hierarchy, and two-system integration layouts |
+| **Lines & notes** | straight connectors, speaker notes per slide |
+| **Slides** | append, duplicate, delete |
+| **PDF** | `export_pdf()` composes PNGs, bypassing Keynote's blank-page bug |
 | **Safety** | `verify()` reads the page back so silent failures surface immediately |
 | **Export** | per-slide PNG, PowerPoint, PDF, `.key` |
 
