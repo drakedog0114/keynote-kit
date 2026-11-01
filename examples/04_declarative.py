@@ -73,12 +73,36 @@ DIAGRAM = {
 }
 
 
+SLOT = {
+    "elements": [
+        {"id": "h", "type": "text", "slot": "title",
+         "text": "写进母版占位符", "box": [150, 90, 1620, 100]},
+        {"id": "b", "type": "text", "slot": "body",
+         "text": "文字仍然是可编辑的文本框\n左对齐、项目符号、段间距都来自母版\n这是 card 做不到的",
+         "box": [150, 260, 760, 420]},
+        {"id": "ch", "type": "chart", "box": [980, 240, 760, 380],
+         "chart": {"kind": "bar", "labels": ["A", "B", "C"], "values": [18, 26, 22],
+                   "title": "模块工作量"}},
+        {"id": "c1", "type": "card", "box": [980, 660, 760, 180],
+         "style": {"fill": "#1F3A5F", "radius": 24},
+         "text": {"title": "卡片", "body": "栅格化，用于装饰与强调。",
+                  "titleColor": "#FFFFFF", "bodyColor": "#C9D2E0",
+                  "titleSize": 24, "bodySize": 15, "valign": "center"}},
+    ],
+}
+
+
 def main() -> None:
+    specs = [(COVER, "空白"), (CARDS, "空白"), (CHART, "空白"),
+             (DIAGRAM, "空白"), (SLOT, "标题与项目符号")]
     deck = Deck.create(theme="乳色纸")
-    for i, spec in enumerate([COVER, CARDS, CHART, DIAGRAM], start=1):
-        deck.add_slide("空白")
-        result = apply_page(deck, i, spec)
-        print(f"第 {i} 页：{result['elements']} 元素，revision {result['revision']}")
+    for i, (spec, master) in enumerate(specs, start=1):
+        deck.add_slide(master)
+        if i == 1 and deck.slide_count() > 1:
+            deck.remove_slide(1)          # 删掉新建文稿自带的空页
+        idx = deck.slide_count()
+        result = apply_page(deck, idx, spec)
+        print(f"第 {idx} 页：{result['elements']} 元素，revision {result['revision']}")
     out = deck.export("/tmp/declarative-demo", "images")
     print("导出：", out)
 

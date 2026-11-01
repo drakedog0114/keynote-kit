@@ -143,6 +143,23 @@ apply_page(deck, slide, {
 Element types: `text` · `card` · `chart` · `diagram` · `image` · `table`.
 `kk_extract_page` reads a slide back into a spec.
 
+### Editable text: write into master placeholders
+
+Bare text items cannot inherit theme alignment, bullets or paragraph spacing. Use a master with
+placeholders and address them by slot instead — the text stays editable **and** gets the theme's
+typography:
+
+```python
+deck.add_slide("标题与项目符号")          # master with title + body placeholders
+apply_page(deck, 1, {"elements": [
+    {"type": "text", "slot": "title", "text": "标题", "box": [150, 90, 1620, 100]},
+    {"type": "text", "slot": "body", "text": "第一点\n第二点", "box": [150, 260, 760, 420]},
+]})
+```
+
+Slot pages skip `clear` and skip the background image (placeholders sit at the bottom of the
+z-order, so a full-page image would cover them). Use `card` only for decorative colour blocks.
+
 See [docs/rfc/0001-declarative-pages.md](docs/rfc/0001-declarative-pages.md) for the design,
 measurements and known limits.
 
