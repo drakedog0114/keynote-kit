@@ -240,7 +240,8 @@ def normalise(spec: dict):
         if not (isinstance(box, (list, tuple)) and len(box) == 4):
             raise SpecError(f"第 {i} 个元素 box 必须是 [x, y, w, h]")
         kind = raw.get("type", "text")
-        if kind not in ("text", "shape", "image", "table", "card", "chart", "diagram", "rich"):
+        if kind not in ("text", "shape", "image", "table", "card", "chart",
+                        "diagram", "rich", "video"):
             raise SpecError(f"第 {i} 个元素类型不支持：{kind}")
         eid = str(raw.get("id") or f"{kind}{i}")
         if eid in ids:
@@ -256,6 +257,11 @@ def normalise(spec: dict):
             path = raw.get("path", "")
             if not path or not os.path.exists(path):
                 raise SpecError(f"图片不存在：{path}")
+            item["path"] = os.path.abspath(path)
+        if kind == "video":
+            path = raw.get("path", "")
+            if not path or not os.path.exists(path):
+                raise SpecError(f"视频不存在：{path}")
             item["path"] = os.path.abspath(path)
         if kind == "rich":
             paras = raw.get("paragraphs") or []
@@ -334,7 +340,7 @@ function run(argv) {
     } else if (el.type === 'shape') {
       slide.shapes.push(K.Shape({ objectText: el.text }));
       styleParas(slide.shapes[slide.shapes.length - 1], st);
-    } else if (['image', 'card', 'chart', 'diagram'].indexOf(el.type) >= 0) {
+    } else if (['image', 'card', 'chart', 'diagram', 'video'].indexOf(el.type) >= 0) {
       slide.images.push(K.Image({ file: Path(el.path) }));
     } else if (el.type === 'table') {
       const rows = el.data.length;
@@ -424,7 +430,7 @@ def _locate(lists: dict, plan, keys) -> dict:
     used, out = {}, {}
     for item in plan:
         eid, kind = item["id"], item["type"]
-        pool = lists.get("image" if kind in ("card", "chart", "diagram") else kind, [])
+        pool = lists.get("image" if kind in ("card", "chart", "diagram", "video") else kind, [])
         if kind == "text" or (kind == "shape" and item.get("text")):
             base, kth = keys.get(eid, ("", 1))
             seen = 0
@@ -437,7 +443,7 @@ def _locate(lists: dict, plan, keys) -> dict:
                         out[eid] = (kind, i)
                         used[(kind, i)] = eid
                         break
-        elif kind in ("image", "card", "chart", "diagram"):
+        elif kind in ("image", "card", "chart", "diagram", "video"):
             base = os.path.basename(item["path"])
             for i, name in enumerate(pool, start=1):
                 if used.get((kind, i)):
@@ -470,7 +476,8 @@ def _locate(lists: dict, plan, keys) -> dict:
 def _apply_geometry(doc: str, slide: int, plan, located: dict) -> dict:
     """按下标设几何 + 批量回读位置。"""
     coll = {"text": "text item", "shape": "shape", "image": "image",
-            "table": "table", "card": "image", "chart": "image", "diagram": "image"}
+            "table": "table", "card": "image", "chart": "image",
+            "diagram": "image", "video": "image"}
     blocks = []
     for item in plan:
         hit = located.get(item["id"])
@@ -670,31 +677,33 @@ def apply_page(deck, slide: int, spec: dict, mode: str = "replace") -> dict:
 
 
 def _apply_sequential(deck, slide: int, bg, elements: list[dict], mode: str) -> dict:
-    """含 rich 元素时按顺序逐个落位：rich 走 RTF 粘贴，其余走批量单元素路径。
+    """含 rich 元素时：先批量落所有非文字元素，再逐个粘贴富文本。
 
-    必须保序，因为粘贴是按时间顺序插入的，元素顺序就是 z 序。
+    Keynote 的图片层与文字层是分开的，所以「图片先、文字后」等价于原稿的
+    「背景图在最下层、文字在最上层」，而且能把图片的批量优势用满。
     """
     from .richtext import paste_rich_text
 
     if mode == "replace":
         clear_slide(deck, slide)
-    if bg:
-        apply_page(deck, slide, {"elements": [
-            {"id": "bg", "type": "image", "path": bg["path"], "box": [0, 0, 1920, 1080]}
-        ]}, mode="append")
 
-    done = 0 if bg is None else 1
-    for el in elements:
-        if el["type"] == "rich":
-            paste_rich_text(deck.doc, slide, el["paragraphs"], el["box"])
-            done += 1
-            continue
-        single = {k: v for k, v in el.items() if k in
-                  ("id", "type", "text", "path", "data", "style", "slot")}
-        apply_page(deck, slide, {"elements": [single]}, mode="append")
-        done += 1
-    return {"slide": slide, "elements": done, "background": bool(bg),
-            "revision": "seq", "verified": True, "mode": "sequential"}
+    batch = []
+    if bg:
+        batch.append({"id": "bg", "type": "image", "path": bg["path"],
+                      "box": [0, 0, 1920, 1080]})
+    batch += [{k: v for k, v in el.items()
+               if k in ("id", "type", "box", "text", "path", "data", "style", "slot")}
+              for el in elements if el["type"] != "rich"]
+    if batch:
+        apply_page(deck, slide, {"elements": batch}, mode="append")
+
+    rich = [el for el in elements if el["type"] == "rich"]
+    for el in rich:
+        paste_rich_text(deck.doc, slide, el["paragraphs"], el["box"])
+
+    return {"slide": slide, "elements": len(batch) + len(rich),
+            "background": bool(bg), "revision": "seq", "verified": True,
+            "mode": "sequential"}
 
 
 def _fingerprint(got: dict) -> str:

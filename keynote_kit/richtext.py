@@ -63,7 +63,9 @@ def build_rtf(paragraphs: list[dict], default_size: float = 18) -> str:
                           + " " + _rtf_escape(run.get("text", "")) + "\\b0")
         body.append("".join(chunks) + "\\par")
 
-    fonttbl = "".join(f"{{\\f{i}\\fnil {name};}}" for name, i in fonts.items()) or "{\\f0\\fnil Helvetica;}"
+    fonttbl = "".join(
+        "{\\f%d\\fnil %s;}" % (i, _rtf_escape(name)) for name, i in fonts.items()
+    ) or "{\\f0\\fnil Helvetica;}"
     colortbl = ";" + "".join(
         "\\red{r}\\green{g}\\blue{b};".format(
             r=int(h[0:2], 16), g=int(h[2:4], 16), b=int(h[4:6], 16))
@@ -88,19 +90,17 @@ def paste_rich_text(doc: str, slide: int, paragraphs: list[dict], box: list[floa
         applescript(f'''
 tell application "Keynote"
   activate
-  tell document {esc_text(doc)}
-    set current slide of it to slide {slide} of it
-  end tell
+  tell document {esc_text(doc)} to set current slide to slide {slide}
 end tell
-delay 0.2
+delay 0.12
 set theRTF to (read (POSIX file "{path}") as «class RTF »)
 set the clipboard to theRTF
 tell application "Keynote" to activate
-delay 0.15
+delay 0.1
 tell application "System Events"
   keystroke "v" using command down
 end tell
-delay 0.45
+delay 0.3
 tell application "Keynote"
   tell document {esc_text(doc)}
     set sel to selection

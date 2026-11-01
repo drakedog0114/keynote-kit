@@ -157,6 +157,27 @@ def resolve_align(para, issues):
     return "left"
 
 
+def extract_video(sh, outdir: str) -> str | None:
+    """从 p:nvPr/a:videoFile 的 r:link 取出嵌入的视频文件。"""
+    try:
+        from pptx.oxml.ns import qn
+        node = sh._element.find(".//" + qn("a:videoFile"))
+        if node is None:
+            return None
+        rid = node.get(qn("r:link")) or node.get(qn("r:embed"))
+        part = sh.part.related_part(rid)
+        blob = part.blob
+        ext = part.partname.ext or "mp4"
+        os.makedirs(outdir, exist_ok=True)
+        digest = hashlib.sha1(blob).hexdigest()[:12]
+        path = os.path.join(outdir, f"vid_{digest}.{ext}")
+        if not os.path.exists(path):
+            open(path, "wb").write(blob)
+        return path
+    except Exception:
+        return None
+
+
 def shape_to_element(sh, tr, outdir, issues):
     ox, oy, sx, sy = tr
     try:
@@ -175,8 +196,12 @@ def shape_to_element(sh, tr, outdir, issues):
         return {"type": "image", "box": box, "path": path}
 
     if sh.shape_type == MSO_SHAPE_TYPE.MEDIA:
-        issues["media_unsupported"] += 1        # 视频：Keynote 侧无法用 API 建 movie
-        return None
+        path = extract_video(sh, outdir)
+        if not path:
+            issues["media_unsupported"] += 1
+            return None
+        issues["media_ok"] += 1
+        return {"type": "video", "box": box, "path": path}
 
     if getattr(sh, "has_table", False) and sh.has_table:
         data = [[c.text.strip() for c in row.cells] for row in sh.table.rows]
