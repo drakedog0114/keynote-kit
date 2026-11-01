@@ -163,3 +163,52 @@ Keynote's `opacity` property is 0–100. Setting `0.4` makes the element 0.4% op
 When pasting RTF, anything placed after a `{\field ... HYPERLINK ...}` run is silently
 discarded. A link must be the **last** run of its paragraph. `build_rtf` now raises an
 error instead of losing the text.
+
+
+## 4. Missing fonts cap the fidelity of a PPTX → Keynote conversion
+
+A deck's fonts are part of its design. If the machine running Keynote does not have
+them, **both** Keynote and any reference renderer silently substitute a fallback, and
+the two fallbacks differ — so a pixel comparison measures the difference between two
+fallbacks, not the design.
+
+How to check:
+
+```bash
+unzip -o deck.pptx -d /tmp/x
+grep -oh 'typeface="[^"]*"' /tmp/x/ppt/slides/*.xml | sort | uniq -c | sort -rn
+```
+
+`HarmonyOS Sans SC` is free and Apache-2.0 licensed:
+<https://github.com/huawei-fonts/HarmonyOS-Sans> (the archive is Git LFS — fetch it from
+`media.githubusercontent.com/media/<owner>/<repo>/<ref>/<path>`).
+
+## 5. JXA collection index ≠ "the element you just created"
+
+Two separate bugs, one root cause:
+
+* `slide.textItems[slide.textItems.length - 1]` is **not** the text item you just pushed
+  — theme placeholders enumerate after pushed items. Style the local reference instead.
+* Two cards with identical configuration render to the same PNG file name, so
+  name-based lookup matched the wrong element and moved it to another card's position.
+
+Safe rules:
+
+* **Text** → match by content, never by index.
+* **Images / cards / charts** → match by **creation order**. `slide.images` enumerates in
+  stacking order, which is the order you pushed them, so the n-th created element is the
+  n-th item in the pool.
+
+## 6. Auto-shape fills cannot be read back, so a rebuild loses them
+
+A rebuilt page renders auto-shapes without their fill — dark panels come out white. The
+extractor reports these as `autoshape_nofill`. Combined with unsupported freeforms and
+flattened groups, this is why **rebuilding a designed deck is not recommended**; native
+import is.
+
+## 7. Text overflow is normal — a text box may be shorter than its text
+
+Keynote text boxes never clip; text spills downwards. Many decks deliberately give a
+96 pt title a 60 pt box. A naive "does the text fit the box" check flags all of them.
+That is why auto-fit defaults to `"auto"`: it only shrinks when the text would fall off
+the canvas, or overflow a multi-line box by more than 25 %.

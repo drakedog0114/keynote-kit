@@ -71,3 +71,28 @@ Details: [visuals.md](visuals.md). Self-check: `python tools/test_capabilities.p
 | Data tables | `keynote-kit.add_table` |
 | Charts and diagrams | render with `charts` / `diagrams`, insert as image |
 | Animations, cropping, master backgrounds | Keynote UI, or wait for a native MCP |
+
+## Validating a real deck
+
+The fastest way to know whether a conversion is good is to render the source and the
+result the same way and compare page by page:
+
+```bash
+# 1. reference: render the source PPTX
+soffice --headless --convert-to pdf deck.pptx && pdftoppm -png -r 72 deck.pdf /tmp/ref
+# 2. candidate: import into Keynote and export PNGs
+python -c "from keynote_kit import Deck; Deck('deck').export('/tmp/out', 'images')"
+# 3. compare
+python tools/compare.py /tmp/ref /tmp/out
+```
+
+On a 22-page deck with 74 groups and 122 auto shapes:
+
+| route | time | similarity to the source |
+|---|---|---|
+| native import | **4 s** | **95.4 %** |
+| rebuild from spec | 596 s | 89.5 % (worst page 49.9 %) |
+
+Native import wins on both axes — so **import real decks, do not rebuild them**.
+Use the spec pipeline for pages you author yourself, and `replace_text.py` to adapt
+content in an imported deck (it preserves every paragraph's size, font and colour).

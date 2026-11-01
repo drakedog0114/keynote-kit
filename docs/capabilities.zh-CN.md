@@ -66,3 +66,27 @@
 | 数据表格 | `kk_add_table` |
 | 图表与信息图 | `charts` / `diagrams` 渲染后插入 |
 | 动画、裁剪、母版背景 | Keynote 界面操作，或等原生 MCP |
+
+## 真实稿验证流程
+
+判断一次转换做得好不好，最快的办法是：源文件和结果用同一种方式渲染，逐页比对。
+
+```bash
+# 1. 参考：渲染源 PPTX
+soffice --headless --convert-to pdf deck.pptx && pdftoppm -png -r 72 deck.pdf /tmp/ref
+# 2. 候选：导入 Keynote 后导出 PNG
+python -c "from keynote_kit import Deck; Deck('deck').export('/tmp/out', 'images')"
+# 3. 比对
+python tools/compare.py /tmp/ref /tmp/out
+```
+
+在一份 22 页、含 74 个组合形状和 122 个自动图形的真实稿上：
+
+| 路线 | 耗时 | 与源文件的相似度 |
+|---|---|---|
+| 原生导入 | **4 秒** | **95.4%** |
+| spec 重建 | 596 秒 | 89.5%（最低页 49.9%） |
+
+原生导入两个维度都赢——所以**真实稿一律导入，不要重建**。
+spec 管线用在自己新写的页；导入后的稿改内容用 `replace_text.py`
+（它保留每一段的字号、字体和颜色）。

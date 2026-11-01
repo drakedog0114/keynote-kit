@@ -90,6 +90,46 @@ Reveal-by-splitting instead of build animations, safer auto-fit, and a card-text
   build path re-normalised already-normalised elements, which had stringified the card's
   structured `text` payload.
 
+## [0.5.0] - 2026-11-02
+
+Validated against a real 22-page client deck; the lessons are in the docs.
+
+### Added
+- `tools/compare.py`: page-by-page similarity between two sets of renders, with a
+  `--min` threshold for CI.
+- `tools/audit_styles.py`: finds style problems in an existing deck (uniform
+  multi-paragraph text, zero-size elements, empty boxes, overflow risk).
+- `examples/05_end_to_end.py`: the six-page end-to-end demo, now reproducible from the repo.
+- Four new gotchas in both languages: missing fonts cap fidelity, JXA collection index
+  ≠ the element just created, auto-shape fills cannot be read back, and a text box may
+  legitimately be shorter than its text.
+
+### Fixed
+- **Cards lost their position when two cards had identical configuration.** They render
+  to the same PNG file name, so name-based lookup matched the wrong element. Image-like
+  elements are now located by creation order — `slide.images` enumerates in stacking
+  order, which is the order they were pushed. Same root cause as the `textItems` index
+  bug fixed in 0.3.0: a JXA collection index does not mean "the element just created".
+
+### Measured on a real deck (22 pages, 74 groups, 122 auto shapes)
+
+| route | time | similarity to source |
+|---|---|---|
+| native import | **4 s** | **95.4 %** |
+| rebuild from spec | 596 s | 89.5 % (worst page 49.9 %) |
+
+Native import wins on both axes, so **import real decks and adapt them with
+`replace_text.py`** rather than rebuilding them. Rebuilding still drops auto-shape
+fills, freeforms and group transforms.
+
+### Note
+
+Fidelity numbers above are measured against a render of the source **on a machine
+without the deck's fonts**. The deck used `HarmonyOS Sans SC` (2180 runs), which was not
+installed, so both renderers substituted different fallbacks — 95.4 % is a floor, not a
+ceiling. Installing the font (`HarmonyOS Sans SC` is Apache-2.0) makes Keynote render the
+design as intended.
+
 ## [Unreleased]
 
 ### Planned
