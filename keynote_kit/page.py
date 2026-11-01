@@ -248,6 +248,10 @@ def normalise(spec: dict):
         ids.add(eid)
         item = {"id": eid, "type": kind, "box": [float(v) for v in box],
                 "text": str(raw.get("text", "")), "style": raw.get("style") or {}}
+        if raw.get("slot"):
+            if kind != "text":
+                raise SpecError(f"元素 {eid}：slot 只能用于 text")
+            item["slot"] = str(raw["slot"])
         if kind == "image":
             path = raw.get("path", "")
             if not path or not os.path.exists(path):
@@ -510,6 +514,68 @@ def _apply_geometry(doc: str, slide: int, plan, located: dict) -> dict:
     return result
 
 
+_AS_SLOTS = '''
+        tell application "Keynote"
+          tell document {doc}
+            set s to slide {slide} of it
+            set out to ""
+            set ps to position of text items of s
+            set ws to width of text items of s
+            repeat with i from 1 to (count of ps)
+              set q to item i of ps
+              set out to out & i & "|" & (item 1 of q) & "|" & (item 2 of q) & "|" & (item i of ws) & linefeed
+            end repeat
+            return out
+          end tell
+        end tell
+'''
+
+
+def find_slots(doc: str, slide: int) -> dict:
+    """找出母版占位符：宽度>0 的前两个，按 y 排序 → title / body。"""
+    raw = applescript(_AS_SLOTS.format(doc=esc_text(doc), slide=slide)) or ""
+    cands = []
+    for line in raw.splitlines():
+        bits = line.strip().split("|")
+        if len(bits) == 4 and bits[0].isdigit():
+            try:
+                cands.append({"index": int(bits[0]), "x": float(bits[1]),
+                              "y": float(bits[2]), "w": float(bits[3])})
+            except ValueError:
+                continue
+    real, seen = [], set()
+    for c in cands:
+        if c["w"] <= 40:                     # 幽灵占位符（0 宽）
+            continue
+        key = (round(c["x"]), round(c["y"]), round(c["w"]))
+        if key in seen:                      # 同一占位符会被枚举两次
+            continue
+        seen.add(key)
+        real.append(c)
+    real.sort(key=lambda c: c["y"])
+    slots = {}
+    if real:
+        slots["title"] = real[0]
+    if len(real) > 1:
+        slots["body"] = real[1]
+    return slots
+
+
+def write_slot(doc: str, slide: int, index: int, text: str, box) -> None:
+    x, y, w, h = (int(round(v)) for v in box)
+    body = " & linefeed & ".join(esc_text(line) for line in text.split("\n"))
+    applescript(f'''
+        tell application "Keynote"
+          tell document {esc_text(doc)}
+            set tgt to text item {index} of slide {slide} of it
+            set object text of tgt to ({body})
+            set width of tgt to {w}
+            set height of tgt to {h}
+            set position of tgt to {{{x}, {y}}}
+          end tell
+        end tell''')
+
+
 def clear_slide(deck, slide: int) -> int:
     before = deck.inspect(slide)["count"]
     lines = ['tell application "Keynote"',
@@ -531,9 +597,19 @@ def apply_page(deck, slide: int, spec: dict, mode: str = "replace") -> dict:
     if slide > deck.slide_count():
         raise SpecError(f"第 {slide} 页不存在（当前 {deck.slide_count()} 页）")
 
+    slot_els = [el for el in elements if el.get("slot")]
+    normal = [el for el in elements if not el.get("slot")]
+
+    # 有 slot 时不能清空（占位符会被删掉），改为在现有页面上写；
+    # 也不能插整页背景图 —— 占位符比新插入的图更靠后，会被盖住，背景交给母版
+    if slot_els:
+        if mode == "replace":
+            mode = "append"
+        bg = None
+
     payload = {"doc": deck.doc, "slide": slide, "clear": mode == "replace",
                "bg": bg["path"] if bg else None, "elements": []}
-    for el in elements:
+    for el in normal:
         st = el.get("style") or {}
         color = st.get("color")
         payload["elements"].append({
@@ -546,11 +622,19 @@ def apply_page(deck, slide: int, spec: dict, mode: str = "replace") -> dict:
 
     built = jxa(_JXA_CREATE, payload) or {}
 
-    keys = _keys(elements)
+    if slot_els:
+        slots = find_slots(deck.doc, slide)
+        for el in slot_els:
+            slot = slots.get(el.get("slot"))
+            if not slot:
+                raise SpecError(f"元素 {el['id']}：本页没有 {el['slot']} 占位符（请用带该版式的母版建页）")
+            write_slot(deck.doc, slide, slot["index"], el["text"], el["box"])
+
+    keys = _keys(normal)
     plan, ordinals = [], {"shape": 0, "table": 0}
     if bg:
         plan.append({"id": "bg", "type": "image", "path": bg["path"], "box": [0, 0, 1920, 1080]})
-    for el in elements:
+    for el in normal:
         ordinals[el["type"]] = ordinals.get(el["type"], 0) + 1
         plan.append({"id": el["id"], "type": el["type"], "path": el.get("path"),
                      "text": el["text"], "ordinal": ordinals[el["type"]], "box": el["box"]})
@@ -560,7 +644,7 @@ def apply_page(deck, slide: int, spec: dict, mode: str = "replace") -> dict:
     got = _apply_geometry(deck.doc, slide, plan, located)
 
     problems = []
-    for el in elements:
+    for el in normal:
         pos = got.get(el["id"])
         if pos is None:
             problems.append(f"元素 {el['id']} 未落位")
@@ -574,7 +658,7 @@ def apply_page(deck, slide: int, spec: dict, mode: str = "replace") -> dict:
             clear_slide(deck, slide)
         raise VerifyError("；".join(problems))
 
-    return {"slide": slide, "elements": len(elements) + (1 if bg else 0),
+    return {"slide": slide, "elements": len(normal) + len(slot_els) + (1 if bg else 0),
             "background": bool(bg), "revision": _fingerprint(got), "verified": True}
 
 
