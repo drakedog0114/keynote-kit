@@ -83,6 +83,14 @@ def _page_validate(a):
             "types": sorted({e["type"] for e in elements})}
 
 
+@tool("kk_extract_page", "把一页读成 page spec（可再喂给 kk_page 重建）",
+      S(doc=DOC, slide=P("integer", "第几页（1 起）", True),
+        background=P("string", "可选，给 spec 补一个纯色背景，如 #F4EBDD")))
+def _extract_page(a):
+    d = Deck(a["doc"])
+    return page_mod.extract_page(d, a["slide"], with_background=a.get("background"))
+
+
 @tool("kk_list_documents", "列出当前打开的所有 Keynote 文稿")
 def _list_docs(_):
     return {"documents": ops.list_documents()}

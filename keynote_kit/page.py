@@ -354,6 +354,20 @@ def _locate(lists: dict, plan, keys) -> dict:
             i = item["ordinal"]
             out[eid] = (kind, i)
             used[(kind, i)] = eid
+
+    # 兜底：内容匹配失败的（重复文本、空白差异），按同类型剩余位置顺序补上
+    for item in plan:
+        eid = item["id"]
+        if eid in out:
+            continue
+        kind = item["type"]
+        pool_kind = "image" if kind == "card" else kind
+        for i in range(1, len(lists.get(pool_kind, [])) + 1):
+            if used.get((pool_kind, i)):
+                continue
+            out[eid] = (pool_kind, i)
+            used[(pool_kind, i)] = eid
+            break
     return out
 
 
@@ -483,3 +497,76 @@ def _fingerprint(got: dict) -> str:
 
 
 from .deck import _rgb  # noqa: E402  （避免循环导入，放在末尾）
+
+
+# ────────────────────────── 反向：页面 → spec ──────────────────────────
+_JXA_EXTRACT = r"""
+function run(argv) {
+  const p = JSON.parse(argv[0]);
+  const K = Application('Keynote');
+  const d = K.documents.byName(p.doc);
+  const out = [];
+  for (let i = 0; i < d.slides.length; i++) {
+    const s = d.slides[i];
+    const els = [];
+    for (let j = 0; j < s.textItems.length; j++) {
+      const ti = s.textItems[j];
+      let text = ''; try { text = String(ti.objectText()); } catch (e) {}
+      if (!text) continue;
+      const q = ti.position();
+      const st = { size: null, font: null, color: null };
+      try {
+        const para = ti.objectText.paragraphs[0];
+        st.size = Number(para.size());
+        st.font = String(para.font());
+        st.color = String(para.color());
+      } catch (e) {}
+      els.push({ type: 'text', text: text,
+                 box: [q.x, q.y, ti.width(), ti.height()], style: st });
+    }
+    out.push({ n: i + 1, elements: els,
+               images: s.images.length, tables: s.tables.length });
+  }
+  return JSON.stringify(out);
+}
+"""
+
+
+def _applescript_color_to_hex(value: str | None) -> str | None:
+    """'RGB 0.16 0.14 0.12' → '#29241F'"""
+    try:
+        parts = (value or "").split()
+        if parts and parts[0].lower() == "rgb" and len(parts) >= 4:
+            r, g, b = (max(0, min(255, int(round(float(v) * 255)))) for v in parts[1:4])
+            return f"#{r:02X}{g:02X}{b:02X}"
+    except (TypeError, ValueError):
+        pass
+    return None
+
+
+def extract_page(deck, slide: int, *, with_background: str | None = None) -> dict:
+    """把一页读成 page spec（text / table / image 计数一并返回）。
+
+    注意：只能还原「元素」，不能还原主题装饰（纸纹、发丝线、项目符号），
+    这些是版式自带的，不在元素模型里。
+    """
+    raw = jxa(_JXA_EXTRACT, {"doc": deck.doc})
+    pages = raw if isinstance(raw, list) else raw.get("value", [])
+    page = next((p for p in pages if p["n"] == slide), None)
+    if page is None:
+        raise SpecError(f"第 {slide} 页不存在")
+
+    elements = []
+    for i, el in enumerate(page["elements"]):
+        style = {"size": el["style"].get("size"), "font": el["style"].get("font")}
+        hexc = _applescript_color_to_hex(el["style"].get("color"))
+        if hexc:
+            style["color"] = hexc
+        elements.append({"id": f"t{i}", "type": "text", "text": el["text"],
+                         "box": [round(v, 1) for v in el["box"]], "style": style})
+
+    spec = {"elements": elements}
+    if with_background:
+        spec["background"] = {"type": "solid", "color": with_background}
+    return {"slide": slide, "spec": spec,
+            "images": page["images"], "tables": page["tables"]}
