@@ -39,6 +39,18 @@ the font size is reduced until it fits.
  "style": {"size": 42, "fit": True, "minSize": 12}}
 ```
 
+`fit` accepts three values:
+
+| value | behaviour |
+|---|---|
+| `"auto"` (**default**) | only shrinks when something is clearly wrong: the text would fall off the bottom of the canvas, **or** it is >25 % taller than the box *and* the box was sized for several lines |
+| `true` | always shrink until it fits the box |
+| `false` | never touch it |
+
+`"auto"` is the default because in Keynote a text box never clips — text simply spills
+downwards. Shrinking a 96 pt title that was deliberately given a 60 pt box would wreck the
+layout, so `auto` leaves tight boxes alone.
+
 `fitMode`:
 - `shrink` (default) — reduce the font size, keep the box
 - `grow` — first try a larger size, then shrink
@@ -108,7 +120,32 @@ There is no hyperlink API, but the RTF `HYPERLINK` field is imported as a real l
 everything that follows a `HYPERLINK` field. `build_rtf` raises an error instead of letting
 text disappear.
 
-## 6. Build animations — UI only
+## 6. Build animations — use split pages instead
+
+"Appear / fly in / build order" has **no API at all** (the sdef only knows slide transitions),
+so driving the inspector is the only direct route — and the inspector's accessibility tree
+is slow enough that enumeration times out.
+
+The reliable alternative is what keynote-kit calls **reveal**: split one page into several
+pages, each revealing a little more, and connect them with transitions. Played back it
+looks exactly like a build.
+
+```python
+from keynote_kit.build import build_reveal, build_bullets
+
+# 标题 + 三条要点 → 4 页，逐条出现
+build_bullets(deck, slide=4, spec=SPEC, bullet_element="b",
+              transition="object push", duration=0.4)
+
+# 更自由：自己指定每一步露出哪些元素
+build_reveal(deck, slide=4, spec=SPEC,
+             groups=[["title"], ["title", "chart"], ["title", "chart", "card"]])
+```
+
+Each generated page gets a transition, so the sequence plays as one continuous build.
+Everything stays native Keynote — no UI automation, nothing fragile.
+
+## 7. Build animations — UI only
 
 "Appear / fly in / build order" has **no API at all** (the sdef only knows slide transitions).
 The only route is driving the UI:

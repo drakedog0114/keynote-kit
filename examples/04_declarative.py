@@ -103,6 +103,7 @@ def main() -> None:
         idx = deck.slide_count()
         result = apply_page(deck, idx, spec)
         print(f"第 {idx} 页：{result['elements']} 元素，revision {result['revision']}")
+    deck.save(__import__("os").path.expanduser("~/Desktop/声明式示例-5页.key"))
     out = deck.export("/tmp/declarative-demo", "images")
     print("导出：", out)
 

@@ -63,6 +63,33 @@ Visual polish: rounding, auto-fit, z-order, transitions, hyperlinks — plus a s
 - `build_rtf` rejects a hyperlink that is not the last run of its paragraph — Keynote
   silently drops everything after a `HYPERLINK` field.
 
+## [0.4.0] - 2026-11-02
+
+Reveal-by-splitting instead of build animations, safer auto-fit, and a card-text fix.
+
+### Added
+- `keynote_kit/build.py`: `build_reveal()` and `build_bullets()` split one page into a
+  sequence of pages that reveal progressively, connected by transitions. This is the
+  reliable replacement for build animations, which have no API at all.
+- New MCP tools `kk_build_reveal` and `kk_build_bullets` (53 tools total).
+- `tools/audit_styles.py`: audits a deck for style problems — uniform multi-paragraph text
+  (the signature of the styling bug), zero-size elements, empty boxes and overflow risk.
+- `examples/05_end_to_end.py`: the six-page end-to-end demo, moved into the repo so it is
+  reproducible.
+
+### Changed
+- **Text auto-fit is now on by default** with `fit: "auto"`: it only shrinks when the text
+  would fall off the canvas or overflow a multi-line box by >25 %. A deliberately tight box
+  (e.g. a 96 pt title in a 60 pt box) is left alone, because Keynote text boxes never clip.
+  `fit: true` forces shrinking, `fit: false` disables it.
+- The two demo decks on the Desktop were regenerated: every styled text element in them had
+  been stuck at the theme default (46 pt) by the styling bug fixed in 0.3.0.
+
+### Fixed
+- **Cards lost their text when a page also contained a `rich` element.** The sequential
+  build path re-normalised already-normalised elements, which had stringified the card's
+  structured `text` payload.
+
 ## [Unreleased]
 
 ### Planned

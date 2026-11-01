@@ -37,6 +37,18 @@ Keynote 同样没有 autoFit。做法是按真实字体度量量出文字占多�
  "style": {"size": 42, "fit": True, "minSize": 12}}
 ```
 
+`fit` 有三种取值：
+
+| 取值 | 行为 |
+|---|---|
+| `"auto"`（**默认**） | 只在**明显出事**时才缩：文字会掉出画布底部，或文字比框高 25% 以上**且**这个框本来就是按多行排的 |
+| `true` | 永远缩到装得进框 |
+| `false` | 完全不干预 |
+
+默认用 `"auto"` 而不是 `true`，是因为 Keynote 的文本框**不会裁切**——文字只是往下溢出。
+把一个故意放在 60pt 矮框里的 96pt 大标题缩成 48pt 反而会毁掉版式，
+所以 `auto` 不会动「矮框」这种情况。
+
 `fitMode`：
 - `shrink`（默认）—— 缩小字号，框不变
 - `grow` —— 先尝试放大，放不下再缩
@@ -101,7 +113,30 @@ set_rotation(doc, slide, "image", 1, 30)      # 角度，顺时针
 **关键约束：链接必须是该段最后一个 run。** Keynote 会**静默丢弃** `HYPERLINK` 域之后的文字。
 `build_rtf` 现在会直接报错，而不是让文字凭空消失。
 
-## 六、构建动画（只能走 UI）
+## 六、构建动画 → 改用「拆页揭示」
+
+「逐个出现 / 飞入 / 构建顺序」**完全没有 API**（sdef 里只有页面转场），
+直接驱动检查器是唯一的路，而检查器的辅助功能树枚举会超时。
+
+可靠的替代方案是 keynote-kit 说的**揭示（reveal）**：把一页拆成好几页，
+每页比上一页多露一点，页间用转场连起来。播放时看起来就是一次完整的构建动画。
+
+```python
+from keynote_kit.build import build_reveal, build_bullets
+
+# 标题 + 三条要点 → 4 页，逐条出现
+build_bullets(deck, slide=4, spec=SPEC, bullet_element="b",
+              transition="object push", duration=0.4)
+
+# 更自由：自己指定每一步露出哪些元素
+build_reveal(deck, slide=4, spec=SPEC,
+             groups=[["title"], ["title", "chart"], ["title", "chart", "card"]])
+```
+
+每一页都带转场，整串播放起来就是一条连续的构建动画。
+全程是 Keynote 原生能力——没有 UI 自动化，不脆弱。
+
+## 七、构建动画（只能走 UI）
 
 「逐个出现 / 飞入 / 构建顺序」**完全没有 API**（sdef 里只有页面转场）。
 唯一路径是驱动 UI：

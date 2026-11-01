@@ -182,7 +182,31 @@ bring_to_front(doc, slide, "image", 1, "/path/to/image.png")
 ```
 
 Keynote has no crop, autoFit, z-index or hyperlink API — those are computed or
-pre-rendered locally. Build animations ("appear", "fly in") remain UI-only.
+pre-rendered locally.
+
+### Progressive reveal instead of build animations
+
+"Appear / fly in" has no API at all. The reliable substitute is to split the page and
+connect the pieces with transitions:
+
+```python
+from keynote_kit.build import build_bullets, build_reveal
+
+build_bullets(deck, slide=4, spec=SPEC, bullet_element="b")   # title + 3 bullets → 4 pages
+build_reveal(deck, slide=4, spec=SPEC,
+             groups=[["title"], ["title", "chart"], ["title", "chart", "card"]])
+```
+
+Everything stays native Keynote — no UI automation.
+
+### Auditing an existing deck
+
+```bash
+python tools/audit_styles.py ~/Desktop/deck.key
+```
+
+Flags uniform multi-paragraph text (the signature of a styling bug), zero-size
+elements, empty boxes and overflow risk.
 
 ## Re-using a deck for another client
 
@@ -247,6 +271,7 @@ Full tool catalogue and client configs: [docs/mcp-server.md](docs/mcp-server.md)
 | MCP server | [mcp-server.md](docs/mcp-server.md) | [中文](docs/mcp-server.zh-CN.md) | 41 tools, client configs, migration table |
 | Diagrams | [diagrams.md](docs/diagrams.md) | [中文](docs/diagrams.zh-CN.md) | Data specs for swimlane / hierarchy / integration |
 | **Deck compression** | [compression.md](docs/compression.md) | [中文](docs/compression.zh-CN.md) | Shrinking `.key` files safely, and the four traps |
+| **Audit** | — | — | `tools/audit_styles.py`: find style problems in an existing deck |
 | **Visual polish** | [visuals.md](docs/visuals.md) | [中文](docs/visuals.zh-CN.md) | Rounded images, text auto-fit, z-order, transitions, hyperlinks |
 | **Client swap** | [client-swap.md](docs/client-swap.md) | [中文](docs/client-swap.zh-CN.md) | Re-use a deck for a different client: import, rewrite, re-brand, verify |
 | MCP integration | [mcp-integration.md](docs/mcp-integration.md) | — | Co-existing with other MCP servers |

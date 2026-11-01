@@ -576,6 +576,40 @@ def _bring_to_front(a):
 
 
 
+# ────────────────────────── 新增：拆页揭示（替代构建动画）──────────────────────────
+@tool("kk_build_reveal", "把一页拆成「逐步揭示」的多页，页间用转场连接",
+      S(doc=DOC, slide=SLIDE,
+        spec=P("object", "页面 spec（同 kk_page 的 elements 格式）", True),
+        groups=P("array", "每一步露出的元素 id 分组，如 [[t],[t,b]]；省略则按元素顺序一步一个"),
+        transition=P("string", "转场效果", default="object push",
+                     enum=["no transition effect", "magic move", "shimmer", "sparkle",
+                           "swing", "object cube", "object flip", "object pop",
+                           "object push", "object revolve", "object zoom", "perspective"]),
+        duration=P("number", "转场时长（秒）", default=0.5)))
+def _build_reveal(a):
+    from .build import build_reveal
+    deck = Deck(a["doc"])
+    groups = a.get("groups")
+    return build_reveal(deck, a["slide"], a["spec"], steps=groups,
+                        transition=a.get("transition", "object push"),
+                        duration=float(a.get("duration", 0.5)))
+
+
+@tool("kk_build_bullets", "把「标题 + 若干要点」拆成逐条出现的页序列",
+      S(doc=DOC, slide=SLIDE,
+        spec=P("object", "页面 spec", True),
+        bulletElement=P("string", "要点元素的 id", True),
+        transition=P("string", "转场效果", default="object push"),
+        duration=P("number", "转场时长（秒）", default=0.4)))
+def _build_bullets(a):
+    from .build import build_bullets
+    deck = Deck(a["doc"])
+    return build_bullets(deck, a["slide"], a["spec"], a["bulletElement"],
+                         transition=a.get("transition", "object push"),
+                         duration=float(a.get("duration", 0.4)))
+
+
+
 def main() -> int:
     print(f"keynote-kit MCP server v{__version__} · {len(TOOLS)} tools", file=sys.stderr)
     for line in sys.stdin:

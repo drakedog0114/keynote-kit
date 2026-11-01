@@ -188,6 +188,60 @@ function run(argv) {
           by_text.get("这是一段很长", {}).get("sz", 99) < 42,
           f"42 → {by_text.get('这是一段很长的文', {}).get('sz')}")
 
+    # ── 7. 拆页揭示（替代构建动画）─────────────────────────────
+    from keynote_kit.build import build_bullets, build_reveal
+    reveal_spec = {"background": {"type": "solid", "color": "#F4EBDD"}, "elements": [
+        {"id": "t", "type": "text", "text": "标题", "box": [150, 120, 1620, 90],
+         "style": {"size": 54, "color": "#2B2420"}},
+        {"id": "b", "type": "rich", "box": [150, 320, 1400, 420], "paragraphs": [
+            {"align": "left", "runs": [{"text": "要点一", "size": 30}]},
+            {"align": "left", "runs": [{"text": "要点二", "size": 30}]},
+            {"align": "left", "runs": [{"text": "要点三", "size": 30}]}]}]}
+    deck.add_slide("空白")
+    r = build_bullets(deck, deck.slide_count(), reveal_spec, "b",
+                      transition="object push")
+    check("拆页揭示：生成 N+1 页", len(r["slides"]) == 4, str(r["slides"]))
+    bullets_per_page = []
+    for i in r["slides"]:
+        raw = jxa(r"""
+function run(argv) {
+  const p = JSON.parse(argv[0]); const K = Application('Keynote');
+  let doc = null; const ds = K.documents();
+  for (let i = 0; i < ds.length; i++) if (String(ds[i].name()) === p.doc) doc = ds[i];
+  const s = doc.slides[p.n - 1]; let n = 0;
+  for (let ti = 0; ti < s.textItems.length; ti++) {
+    const it = s.textItems[ti];
+    let t = ''; try { t = String(it.objectText()); } catch (e) {}
+    // RTF 粘出来的文本，JXA 读不到 paragraphs，只能按换行数段落
+    const lines = t.split('\n');
+    for (let li = 0; li < lines.length; li++) {
+      if (lines[li].indexOf('要点') === 0) n++;
+    }
+  }
+  return JSON.stringify({ n: n });
+}""", {"doc": deck.doc, "n": i})
+        v = raw.get("value", raw)
+        bullets_per_page.append(v.get("n", 0) if isinstance(v, dict) else 0)
+    check("拆页揭示：要点逐条递增", bullets_per_page == [0, 1, 2, 3],
+          str(bullets_per_page))
+    trs = [get_transition(deck.doc, i) for i in r["slides"]]
+    check("拆页揭示：每页都带转场",
+          all(isinstance(t, dict) and "push" in str(t.get("effect", "")) for t in trs),
+          str([t.get("effect") for t in trs]))
+
+    # ── 8. fit 默认策略 ────────────────────────────────────────
+    from keynote_kit import page as page_mod
+    _, els = page_mod.normalise({"elements": [
+        {"id": "a", "type": "text", "text": "x" * 200, "box": [80, 300, 760, 150],
+         "style": {"size": 42}}]})
+    check("fit：默认开启且自动缩小",
+          els[0]["style"]["size"] < 42, f"42 → {els[0]['style']['size']}")
+    _, els = page_mod.normalise({"elements": [
+        {"id": "b", "type": "text", "text": "一次调用\n生成一整页",
+         "box": [150, 380, 1500, 60], "style": {"size": 96}}]})
+    check("fit：矮框不乱缩", els[0]["style"]["size"] == 96,
+          f"96 → {els[0]['style']['size']}")
+
     deck.close()
     print(f"\n通过 {len(PASS)} 项，失败 {len(FAIL)} 项")
     if FAIL:

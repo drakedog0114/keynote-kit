@@ -249,6 +249,9 @@ def normalise(spec: dict):
         ids.add(eid)
         item = {"id": eid, "type": kind, "box": [float(v) for v in box],
                 "text": str(raw.get("text", "")), "style": raw.get("style") or {}}
+        if isinstance(raw.get("text"), dict):
+            # card 的 text 是结构体，str() 化会把它毁掉 —— 保留一份原样
+            item["text_raw"] = raw["text"]
         if raw.get("slot"):
             if kind != "text":
                 raise SpecError(f"元素 {eid}：slot 只能用于 text")
@@ -296,20 +299,57 @@ def normalise(spec: dict):
                                 f"rich 元素 {eid} 第 {pi + 1} 段的链接必须在最后一个 run，"
                                 "否则 Keynote 会丢弃其后的文字")
         if kind == "text":
-            # 文本溢出自动校正：Keynote 没有 autoFit 接口，先量再缩
+            # 文本溢出自动校正。Keynote 没有 autoFit 接口，所以本地量算。
+            #
+            # fit 的三种取值：
+            #   "auto"（默认）只在**明显出事**时才缩：
+            #     · 文字会溢出画布底部，或
+            #     · 文字比框高 25% 以上，且这个框本来就是按多行排的
+            #   true  永远缩到装得进框
+            #   false 完全不干预
+            #
+            # 默认不用 true，是因为「框比文字矮」在 Keynote 里很常见——
+            # 文本框不会裁切，文字只是往下溢出；把 96pt 大标题缩成 48pt
+            # 反而会毁掉版式。auto 只在真的会出框时才动手。
             st = item["style"]
-            if st.get("fit"):
-                from .imaging import fit_text
+            mode_fit = st.get("fit", "auto")
+            if mode_fit is not False:
+                from .imaging import fit_text, measure
                 size = float(st.get("size", 18))
-                res = fit_text(
-                    item["text"], item["box"], size=size,
-                    font=st.get("font"), line_spacing=float(st.get("lineSpacing", 1.25)),
-                    min_size=float(st.get("minSize", 8)),
-                    mode=st.get("fitMode", "shrink"),
-                )
-                if res["changed"]:
-                    st["size"] = res["size"]
-                item["fit"] = res
+                font = st.get("font")
+                ls = float(st.get("lineSpacing", 1.25))
+                min_size = float(st.get("minSize", 8))
+                box = item["box"]
+                box_h = float(box[3])
+                m0 = measure(item["text"], box, size=size, font=font,
+                             line_spacing=ls)
+                need = m0["height"]
+                # 文字虽然装得进框，但可能掉出画布底部 —— 这时以画布底为界
+                slide_overflow = (float(box[1]) + need) > 1080
+                target_h = box_h
+                if slide_overflow:
+                    target_h = max(size * ls * 0.5, 1080 - float(box[1]))
+                m = measure(item["text"], [box[0], box[1], box[2], target_h],
+                            size=size, font=font, line_spacing=ls)
+                multiline_box = box_h >= 2 * size * ls
+                big_overflow = need > box_h * 1.25
+                should = (mode_fit is True) or slide_overflow or (big_overflow and multiline_box)
+                if should and m["overflow"]:
+                    res = fit_text(
+                        item["text"], [box[0], box[1], box[2], target_h],
+                        size=size, font=font,
+                        line_spacing=ls, min_size=min_size,
+                        mode=st.get("fitMode", "shrink"))
+                    if res["changed"]:
+                        st["size"] = res["size"]
+                    item["fit"] = res
+                else:
+                    item["fit"] = {"size": size, "lines": m["lines"],
+                                   "height": need, "overflow": m["overflow"],
+                                   "changed": False,
+                                   "reason": ("slide_overflow" if slide_overflow
+                                              else "within_box" if not big_overflow
+                                              else "tight_box_kept")}
         if kind == "chart":
             item["path"] = chart_png(raw.get("chart") or {})
         if kind == "diagram":
@@ -751,9 +791,15 @@ def _apply_sequential(deck, slide: int, bg, elements: list[dict], mode: str) -> 
     if bg:
         batch.append({"id": "bg", "type": "image", "path": bg["path"],
                       "box": [0, 0, 1920, 1080]})
-    batch += [{k: v for k, v in el.items()
-               if k in ("id", "type", "box", "text", "path", "data", "style", "slot")}
-              for el in elements if el["type"] != "rich"]
+    batch += []
+    for el in elements:
+        if el["type"] == "rich":
+            continue
+        item = {k: v for k, v in el.items()
+                if k in ("id", "type", "box", "text", "path", "data", "style", "slot")}
+        if "text_raw" in el:
+            item["text"] = el["text_raw"]
+        batch.append(item)
     if batch:
         apply_page(deck, slide, {"elements": batch}, mode="append")
 
