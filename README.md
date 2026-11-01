@@ -185,6 +185,12 @@ Keynote exposes no API for these — they need UI automation or a future native 
 
 See [docs/gotchas.md](docs/gotchas.md) for the details and for what each limitation means in practice.
 
+## Roadmap
+
+See [docs/rfc/](docs/rfc/) for design proposals. RFC 0001 replaces the current imperative
+element API with a declarative page spec (`kk_page`), collapsing 41 tools into ~12 and adding
+transactions, per-page backgrounds and semantic errors.
+
 ## Contributing
 
 Issues and PRs are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
