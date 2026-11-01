@@ -4,10 +4,39 @@ All notable changes to this project are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 versioning follows [Semantic Versioning](https://semver.org/).
 
+## [0.2.0] - 2026-11-01
+
+Declarative page compiler, in-place client swap, safe deck compression.
+
+### Added
+- `kk_page` / `kk_page_validate` / `kk_extract_page`: build or read a whole slide from one spec,
+  with read-back verification and rollback on mismatch.
+- Element types `card` (rounded fill + embedded text rendered to PNG), `chart` (bar/line/donut),
+  `diagram` (swimlane/hierarchy/integration), `rich` (RTF, keeps per-paragraph alignment).
+- Master-placeholder slots: `{"type": "text", "slot": "title"|"body"}` writes into the theme
+  placeholder so text stays editable **and** inherits alignment, bullets and spacing.
+- `keynote_kit/richtext.py`: RTF → clipboard → paste, the only known way to get editable text
+  with arbitrary alignment in Keynote.
+- `tools/replace_text.py`: semantic find/replace across a deck that preserves per-paragraph
+  size / font / colour (Keynote flattens styles if you assign the whole text item).
+- `tools/pptx_to_spec.py`: decompose a PPTX (master decorations, tiled background, pictures,
+  tables, nested groups, inherited run styles) into page specs.
+- `tools/compress_deck.py`: shrink `.key` files by re-encoding media, verified page-by-page.
+- Docs: `client-swap.md` / `client-swap.zh-CN.md` (turn a deck into another client's deck),
+  `compression.*`, `quality-guide.zh-CN.md`, `rfc/0001-declarative-pages.md`.
+
+### Changed
+- 15 element-level tools are marked `deprecated` (kept callable for one release); new work should
+  go through `kk_page`.
+
+### Fixed
+- Deck rewrite no longer corrupts assets: `.key` filenames are UTF-8 bytes without the flag, so
+  `zipfile` must use `metadata_encoding="utf-8"`; `.png` entries must stay PNG, and palette-mode
+  PNGs do not render after a rewrite.
+
 ## [Unreleased]
 
 ### Planned
-- MCP server wrapper (stdio) so any MCP client can call keynote-kit directly
 - Animation / build support via UI automation (opt-in, requires Accessibility permission)
 - Table cell fill colours once Keynote exposes them
 

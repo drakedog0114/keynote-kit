@@ -163,6 +163,28 @@ z-order, so a full-page image would cover them). Use `card` only for decorative 
 See [docs/rfc/0001-declarative-pages.md](docs/rfc/0001-declarative-pages.md) for the design,
 measurements and known limits.
 
+## Re-using a deck for another client
+
+Proposal decks get re-used — same structure, new client, new numbers. Import rather than rebuild:
+
+```bash
+# 1) native import (13 s for a 434 MB / 59-page deck, 96.5% pixel fidelity, videos kept)
+osascript -e 'tell application "Keynote" to open POSIX file "/path/deck.pptx"'
+
+# 2) rewrite wording, keep formatting
+python tools/replace_text.py "deck name" --map rules.json --dry-run
+python tools/replace_text.py "deck name" --map rules.json
+
+# 3) export every page and check the image-heavy ones
+```
+
+`replace_text.py` snapshots each paragraph's size/font/colour, applies the replacements, then
+restores the attributes — assigning `object text` wholesale would flatten a 118 pt title and a
+66 pt subtitle into one size. Brand names baked into images (screenshots, flow diagrams) are out
+of reach for text replacement and have to be regenerated.
+
+Full checklist: [docs/client-swap.md](docs/client-swap.md).
+
 ## Shrinking an existing deck
 
 Keynote has no "reduce file size" command. `tools/compress_deck.py` rewrites the package media
@@ -204,6 +226,7 @@ Full tool catalogue and client configs: [docs/mcp-server.md](docs/mcp-server.md)
 | MCP server | [mcp-server.md](docs/mcp-server.md) | [中文](docs/mcp-server.zh-CN.md) | 41 tools, client configs, migration table |
 | Diagrams | [diagrams.md](docs/diagrams.md) | [中文](docs/diagrams.zh-CN.md) | Data specs for swimlane / hierarchy / integration |
 | **Deck compression** | [compression.md](docs/compression.md) | [中文](docs/compression.zh-CN.md) | Shrinking `.key` files safely, and the four traps |
+| **Client swap** | [client-swap.md](docs/client-swap.md) | [中文](docs/client-swap.zh-CN.md) | Re-use a deck for a different client: import, rewrite, re-brand, verify |
 | MCP integration | [mcp-integration.md](docs/mcp-integration.md) | — | Co-existing with other MCP servers |
 | Examples | [examples/](examples/) | — | hello deck, full demo, diagram gallery |
 
@@ -235,9 +258,9 @@ See [docs/gotchas.md](docs/gotchas.md) for the details and for what each limitat
 
 ## Roadmap
 
-See [docs/rfc/](docs/rfc/) for design proposals. RFC 0001 replaces the current imperative
-element API with a declarative page spec (`kk_page`), collapsing 41 tools into ~12 and adding
-transactions, per-page backgrounds and semantic errors.
+See [docs/rfc/](docs/rfc/) for design proposals. RFC 0001 introduced the declarative page spec
+(`kk_page`, shipped in 0.2.0). Still open: collapsing the tool surface to ~12, a `clients/*.json`
+template for repeat client swaps, and native rebuilds for pages whose body is a single image.
 
 ## Contributing
 
