@@ -42,6 +42,108 @@ def solid_png(hex_color: str) -> str:
     return path
 
 
+CARD_DIR = os.path.expanduser("~/.cache/keynote-kit/cards")
+
+
+FONT_SERIF = "/System/Library/Fonts/Supplemental/Songti.ttc"
+FONT_SANS = "/System/Library/Fonts/Hiragino Sans GB.ttc"
+
+
+def _font(path: str, size: int):
+    from PIL import ImageFont
+    try:
+        return ImageFont.truetype(path, size)
+    except Exception:  # noqa: BLE001
+        return ImageFont.load_default()
+
+
+def _wrap(text: str, font, max_width: float) -> list[str]:
+    """按字符贪心换行，中英文都适用。"""
+    lines, cur = [], ""
+    for ch in text:
+        if ch == "\n":
+            lines.append(cur)
+            cur = ""
+            continue
+        trial = cur + ch
+        if font.getlength(trial) > max_width and cur:
+            lines.append(cur)
+            cur = ch
+        else:
+            cur = trial
+    if cur:
+        lines.append(cur)
+    return lines
+
+
+def card_png(fill: str, width: float, height: float, radius: int = 24,
+             border: str | None = None, border_width: int = 0, alpha: float = 1.0,
+             text: dict | None = None) -> str:
+    """Keynote 的 shape 没有填充色、文本也不可设对齐，所以卡片连文字一起渲染成 PNG。
+
+    text: {title, body, titleSize, bodySize, titleColor, bodyColor,
+           padding, gap, align: left|center, lineHeight}
+    """
+    from PIL import ImageDraw
+
+    t = text or {}
+    meta = (t.get("title", ""), t.get("body", ""), t.get("titleSize", 0),
+            t.get("bodySize", 0), t.get("align", "left"), t.get("padding", 40))
+    border_key = border.lstrip("#").lower() if border else "none"
+    key = (f"{fill.lstrip('#').lower()}_{int(width)}x{int(height)}_r{radius}_"
+           f"{border_key}_{border_width}_a{alpha:.2f}_{abs(hash(meta)) % 10**8}")
+    os.makedirs(CARD_DIR, exist_ok=True)
+    path = os.path.join(CARD_DIR, f"{key}.png")
+    if os.path.exists(path):
+        return path
+
+    scale = 2
+    w, h = max(2, int(width * scale)), max(2, int(height * scale))
+    im = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(im)
+    rgb = tuple(int(fill.lstrip("#")[i:i + 2], 16) for i in (0, 2, 4))
+    draw.rounded_rectangle(
+        [0, 0, w - 1, h - 1], radius=radius * scale, fill=rgb + (max(0, min(255, int(255 * alpha))),),
+        outline=(tuple(int(border.lstrip("#")[i:i + 2], 16) for i in (0, 2, 4)) + (255,)) if border else None,
+        width=max(1, border_width * scale) if border else 0)
+
+    if t.get("title") or t.get("body"):
+        pad = int(t.get("padding", 40) * scale)
+        inner = w - pad * 2
+        align = t.get("align", "left")
+        # 先算总高，支持垂直居中
+        total = 0
+        tf = bf = None
+        if t.get("title"):
+            tf = _font(FONT_SERIF, int(t.get("titleSize", 34) * scale))
+            tl = _wrap(str(t["title"]), tf, inner)
+            total += len(tl) * int(tf.size * 1.25) + int(t.get("gap", 16) * scale)
+        if t.get("body"):
+            bf = _font(FONT_SANS, int(t.get("bodySize", 19) * scale))
+            bl = _wrap(str(t["body"]), bf, inner)
+            total += len(bl) * int(bf.size * float(t.get("lineHeight", 1.55)))
+        y = pad
+        if t.get("valign") == "center":
+            y = max(pad, (h - total) // 2)
+        if t.get("title"):
+            tf = _font(FONT_SERIF, int(t.get("titleSize", 34) * scale))
+            for line in _wrap(str(t["title"]), tf, inner):
+                draw.text((pad, y), line, font=tf, fill=t.get("titleColor", "#2B2420"))
+                y += int(tf.size * 1.25)
+            y += int(t.get("gap", 16) * scale)
+        if t.get("body"):
+            bf = _font(FONT_SANS, int(t.get("bodySize", 19) * scale))
+            lh = int(bf.size * float(t.get("lineHeight", 1.55)))
+            for line in _wrap(str(t["body"]), bf, inner):
+                x = pad
+                if align == "center":
+                    x = (w - bf.getlength(line)) / 2
+                draw.text((x, y), line, font=bf, fill=t.get("bodyColor", "#6E6259"))
+                y += lh
+    im.save(path)
+    return path
+
+
 # ────────────────────────── spec 校验 ──────────────────────────
 def normalise(spec: dict):
     if not isinstance(spec, dict):
@@ -65,7 +167,7 @@ def normalise(spec: dict):
         if not (isinstance(box, (list, tuple)) and len(box) == 4):
             raise SpecError(f"第 {i} 个元素 box 必须是 [x, y, w, h]")
         kind = raw.get("type", "text")
-        if kind not in ("text", "shape", "image", "table"):
+        if kind not in ("text", "shape", "image", "table", "card"):
             raise SpecError(f"第 {i} 个元素类型不支持：{kind}")
         eid = str(raw.get("id") or f"{kind}{i}")
         if eid in ids:
@@ -78,6 +180,17 @@ def normalise(spec: dict):
             if not path or not os.path.exists(path):
                 raise SpecError(f"图片不存在：{path}")
             item["path"] = os.path.abspath(path)
+        if kind == "card":
+            st = item["style"]
+            item["path"] = card_png(
+                fill=st.get("fill", "#FFFFFF"),
+                width=item["box"][2], height=item["box"][3],
+                radius=int(st.get("radius", 24)),
+                border=st.get("border"),
+                border_width=int(st.get("borderWidth", 0)),
+                alpha=float(st.get("alpha", 1.0)),
+                text=raw.get("text") or None,
+            )
         if kind == "table":
             data = raw.get("data") or []
             if not data:
@@ -125,7 +238,7 @@ function run(argv) {
     } else if (el.type === 'shape') {
       slide.shapes.push(K.Shape({ objectText: el.text }));
       styleParas(slide.shapes[slide.shapes.length - 1], st);
-    } else if (el.type === 'image') {
+    } else if (el.type === 'image' || el.type === 'card') {
       slide.images.push(K.Image({ file: Path(el.path) }));
     } else if (el.type === 'table') {
       const rows = el.data.length;
@@ -215,7 +328,7 @@ def _locate(lists: dict, plan, keys) -> dict:
     used, out = {}, {}
     for item in plan:
         eid, kind = item["id"], item["type"]
-        pool = lists.get(kind, [])
+        pool = lists.get("image" if kind == "card" else kind, [])
         if kind == "text" or (kind == "shape" and item.get("text")):
             base, kth = keys.get(eid, ("", 1))
             seen = 0
@@ -228,14 +341,14 @@ def _locate(lists: dict, plan, keys) -> dict:
                         out[eid] = (kind, i)
                         used[(kind, i)] = eid
                         break
-        elif kind == "image":
+        elif kind in ("image", "card"):
             base = os.path.basename(item["path"])
             for i, name in enumerate(pool, start=1):
                 if used.get((kind, i)):
                     continue
                 if name and (name == base or base in name):
-                    out[eid] = (kind, i)
-                    used[(kind, i)] = eid
+                    out[eid] = ("image", i)
+                    used[("image", i)] = eid
                     break
         else:
             i = item["ordinal"]
@@ -246,7 +359,8 @@ def _locate(lists: dict, plan, keys) -> dict:
 
 def _apply_geometry(doc: str, slide: int, plan, located: dict) -> dict:
     """按下标设几何 + 批量回读位置。"""
-    coll = {"text": "text item", "shape": "shape", "image": "image", "table": "table"}
+    coll = {"text": "text item", "shape": "shape", "image": "image",
+            "table": "table", "card": "image"}
     blocks = []
     for item in plan:
         hit = located.get(item["id"])

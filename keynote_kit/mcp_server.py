@@ -68,7 +68,7 @@ SLIDE = P("integer", "页码（从 1 开始）", True)
 @tool("kk_page", "【推荐】用一份 page spec 生成整页：元素顺序即 z 序，写完自动回读校验，不符则回滚",
       S(doc=DOC,
         slide=P("integer", "第几页（1 起）", True),
-        spec=P("object", "页面描述：{background?, elements:[{id?,type,box:[x,y,w,h],text?,path?,data?,style?}]}", True),
+        spec=P("object", "页面描述：{background?, elements:[{id?,type(text|card|image|table|shape),box:[x,y,w,h],text?,path?,data?,style?}]}。card 支持 style.fill/radius/border 与 text.{title,body,align,valign}", True),
         mode=P("string", "replace（清空重建，默认）或 append（追加）")))
 def _page(a):
     d = Deck(a["doc"])

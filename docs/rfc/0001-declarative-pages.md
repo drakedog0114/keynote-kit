@@ -270,3 +270,49 @@ kk_page(doc, 3, {
 2. 文本对齐：尝试 paragraph 层属性或主题占位符，失败则记录为已知限制
 3. 工具面收敛到 12 个，旧工具标记 deprecated
 4. 用 `kk_page` 重建某宠物品牌 v3 的 15 页做回归
+
+---
+
+## 10. P1 落地：`card` 类型（2026-11-01 同日）
+
+### 10.1 问题
+
+Keynote 的 `shape` **没有填充色**（无 API），文本也**不能设置对齐**（`alignment` 只支持表格
+单元格，text item / paragraph 都报 -1700）。这两条让「飞书那种彩色卡片」在 Keynote 里做不到。
+
+### 10.2 做法：卡片连文字一起渲染成 PNG
+
+```json
+{
+  "id": "c1", "type": "card", "box": [150, 290, 500, 400],
+  "style": { "fill": "#FFFFFF", "radius": 26, "border": "#D9CFBE", "borderWidth": 2 },
+  "text": {
+    "title": "整页 Spec", "body": "一页一个 JSON，元素顺序即 z 序……",
+    "titleSize": 30, "bodySize": 17, "gap": 18, "padding": 38,
+    "titleColor": "#2B2420", "bodyColor": "#6E6259",
+    "align": "left", "valign": "center"
+  }
+}
+```
+
+- 用 Pillow 渲染圆角矩形 + 标题（Songti，衬线）+ 正文（Hiragino Sans GB，无衬线）
+- 正文按字符贪心换行，支持 `\n`、`lineHeight`、`align`、`valign`
+- 2 倍尺寸渲染，插入时缩放到 box，保证清晰
+- 按 (填充/尺寸/圆角/文字参数) 哈希缓存到 `~/.cache/keynote-kit/cards/`
+
+### 10.3 收益
+
+| 项 | 用 shape + 多个 text | 用 card |
+|---|---|---|
+| 三卡页元素数 | 11–14 | **5** |
+| 三卡页耗时 | 4.7–7.6 s | **1.6–1.8 s** |
+| 可设对齐 / 行高 / 颜色 | ❌ | ✅ |
+| 文字可在 Keynote 里二次编辑 | ✅ | ❌（已栅格化） |
+
+**12 页测试稿整体：平均 2.21 s/页（1.61–2.90 s）**，比 P0 的 4.04 s/页快 45%，
+主要来自元素数减少。
+
+### 10.4 取舍声明
+
+卡片文字栅格化 = 失去可编辑性。适合「一次成型、以出片为主」的场景；
+需要客户自己改文案的稿子，仍应使用 text 元素（接受默认对齐）。
