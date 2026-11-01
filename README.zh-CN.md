@@ -90,6 +90,18 @@ python -m keynote_kit.cli export --doc 未命名 --fmt images --out ./out
 
 *以上页面均由 `examples/02_demo_deck.py` 生成。*
 
+## 压缩已有文稿
+
+Keynote 没有"减少文件大小"的接口。`tools/compress_deck.py` 重写包内媒体（视频重编码 + 图片重采样），
+并通过"两份文稿逐页渲染比对"来验收。
+
+```bash
+python tools/compress_deck.py 原稿.key -o 压缩版.key --verify 原稿.key
+# 逐页比对 59 页，差异 0 页     （真实 59 页稿：450 MB → 95 MB）
+```
+
+先读坑：见 [docs/compression.zh-CN.md](docs/compression.zh-CN.md)。
+
 ## MCP 服务
 
 `keynote-kit` 自带**完整**的 MCP 服务，**不需要再装 iwork-mcp 或任何其他 MCP**。41 个工具覆盖
@@ -117,6 +129,7 @@ python -m keynote_kit.mcp_server
 | 踩坑手册 | [中文](docs/gotchas.zh-CN.md) | [EN](docs/gotchas.md) | 13 个 Keynote 脚本缺陷与解法 |
 | MCP 服务 | [中文](docs/mcp-server.zh-CN.md) | [EN](docs/mcp-server.md) | 41 个工具、客户端配置、迁移对照 |
 | 信息图 | [中文](docs/diagrams.zh-CN.md) | [EN](docs/diagrams.md) | 泳道图 / 层级图 / 集成图的数据结构 |
+| **文稿压缩** | [中文](docs/compression.zh-CN.md) | [EN](docs/compression.md) | 安全压缩 `.key`，以及四个必踩的坑 |
 | MCP 共存 | — | [EN](docs/mcp-integration.md) | 与其他 MCP 服务器并用 |
 | 示例 | — | [examples/](examples/) | 可直接运行的示例 |
 

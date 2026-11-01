@@ -14,6 +14,9 @@ versioning follows [Semantic Versioning](https://semver.org/).
 ## [0.1.0] — 2026-11-01
 
 ### Added
+- `tools/compress_deck.py`: safe `.key` size reduction — video re-encode, image resampling,
+  and page-by-page render verification (`--verify`). Documents the four package-rewrite traps
+  (UTF-8 filename decoding, extension/content mismatch, palette PNGs, ffmpeg muxer extensions).
 - Bilingual documentation: every core doc now ships an English and a Simplified Chinese
   version (`*.md` + `*.zh-CN.md`), including a new `docs/diagrams.md` data reference.
 - **Complete MCP server** (`python -m keynote_kit.mcp_server`, 41 tools): documents, pages,
