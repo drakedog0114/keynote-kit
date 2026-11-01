@@ -1,0 +1,52 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "keynote-kit"
+version = "0.1.0"
+description = "Drive Apple Keynote from Python: precise layout, native tables, charts, diagrams."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+authors = [{ name = "Drakedog" }]
+keywords = ["keynote", "applescript", "jxa", "automation", "presentation", "macos"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: MacOS X",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: MacOS",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Office/Business :: Office Suites",
+]
+dependencies = []
+
+[project.optional-dependencies]
+charts = ["matplotlib>=3.8"]
+diagrams = ["Pillow>=10"]
+all = ["matplotlib>=3.8", "Pillow>=10"]
+dev = ["pytest>=8", "ruff>=0.6"]
+
+[project.scripts]
+keynote-kit = "keynote_kit.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/<you>/keynote-kit"
+Issues = "https://github.com/<you>/keynote-kit/issues"
+
+[tool.setuptools.packages.find]
+include = ["keynote_kit*"]
+
+[tool.setuptools.package-data]
+keynote_kit = ["py.typed"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py310"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
