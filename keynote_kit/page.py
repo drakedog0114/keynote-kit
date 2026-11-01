@@ -240,7 +240,7 @@ def normalise(spec: dict):
         if not (isinstance(box, (list, tuple)) and len(box) == 4):
             raise SpecError(f"第 {i} 个元素 box 必须是 [x, y, w, h]")
         kind = raw.get("type", "text")
-        if kind not in ("text", "shape", "image", "table", "card", "chart", "diagram"):
+        if kind not in ("text", "shape", "image", "table", "card", "chart", "diagram", "rich"):
             raise SpecError(f"第 {i} 个元素类型不支持：{kind}")
         eid = str(raw.get("id") or f"{kind}{i}")
         if eid in ids:
@@ -257,6 +257,11 @@ def normalise(spec: dict):
             if not path or not os.path.exists(path):
                 raise SpecError(f"图片不存在：{path}")
             item["path"] = os.path.abspath(path)
+        if kind == "rich":
+            paras = raw.get("paragraphs") or []
+            if not paras:
+                raise SpecError(f"rich 元素 {eid} 缺少 paragraphs")
+            item["paragraphs"] = paras
         if kind == "chart":
             item["path"] = chart_png(raw.get("chart") or {})
         if kind == "diagram":
@@ -594,6 +599,8 @@ def clear_slide(deck, slide: int) -> int:
 
 def apply_page(deck, slide: int, spec: dict, mode: str = "replace") -> dict:
     bg, elements = normalise(spec)
+    if any(el["type"] == "rich" for el in elements):
+        return _apply_sequential(deck, slide, bg, elements, mode)
     if slide > deck.slide_count():
         raise SpecError(f"第 {slide} 页不存在（当前 {deck.slide_count()} 页）")
 
@@ -660,6 +667,34 @@ def apply_page(deck, slide: int, spec: dict, mode: str = "replace") -> dict:
 
     return {"slide": slide, "elements": len(normal) + len(slot_els) + (1 if bg else 0),
             "background": bool(bg), "revision": _fingerprint(got), "verified": True}
+
+
+def _apply_sequential(deck, slide: int, bg, elements: list[dict], mode: str) -> dict:
+    """含 rich 元素时按顺序逐个落位：rich 走 RTF 粘贴，其余走批量单元素路径。
+
+    必须保序，因为粘贴是按时间顺序插入的，元素顺序就是 z 序。
+    """
+    from .richtext import paste_rich_text
+
+    if mode == "replace":
+        clear_slide(deck, slide)
+    if bg:
+        apply_page(deck, slide, {"elements": [
+            {"id": "bg", "type": "image", "path": bg["path"], "box": [0, 0, 1920, 1080]}
+        ]}, mode="append")
+
+    done = 0 if bg is None else 1
+    for el in elements:
+        if el["type"] == "rich":
+            paste_rich_text(deck.doc, slide, el["paragraphs"], el["box"])
+            done += 1
+            continue
+        single = {k: v for k, v in el.items() if k in
+                  ("id", "type", "text", "path", "data", "style", "slot")}
+        apply_page(deck, slide, {"elements": [single]}, mode="append")
+        done += 1
+    return {"slide": slide, "elements": done, "background": bool(bg),
+            "revision": "seq", "verified": True, "mode": "sequential"}
 
 
 def _fingerprint(got: dict) -> str:
