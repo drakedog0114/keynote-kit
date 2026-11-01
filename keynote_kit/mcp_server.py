@@ -33,6 +33,15 @@ from .runner import KeynoteError
 
 TOOLS: dict[str, dict] = {}
 
+# 元素级旧工具：已被 kk_page 覆盖，保留兼容但标记降级（下个主版本移除）
+DEPRECATED_TOOLS = {
+    "kk_add_text", "kk_add_shape", "kk_add_image", "kk_add_table", "kk_add_line",
+    "kk_format_shape", "kk_get_shape_info", "kk_position_item", "kk_align_items",
+    "kk_distribute_items", "kk_set_background", "kk_set_title", "kk_set_body",
+    "kk_move_slide", "kk_skip_slide",
+}
+DEPRECATED_NOTE = "（已降级：推荐 kk_page 声明式建页；保留兼容，下个主版本移除）"
+
 
 def tool(name: str, description: str, schema: dict | None = None):
     def wrap(fn: Callable[[dict], Any]):
@@ -463,6 +472,17 @@ def _handle(msg: dict) -> dict | None:
         return {"jsonrpc": "2.0", "id": mid,
                 "error": {"code": -32601, "message": f"method not found: {method}"}}
     return None
+
+
+def apply_deprecations() -> None:
+    for name in DEPRECATED_TOOLS:
+        entry = TOOLS.get(name)
+        if entry and not entry.get("deprecated"):
+            entry["deprecated"] = True
+            entry["description"] = entry["description"] + DEPRECATED_NOTE
+
+
+apply_deprecations()
 
 
 def main() -> int:

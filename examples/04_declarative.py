@@ -47,9 +47,35 @@ CARDS = {
 }
 
 
+CHART = {
+    "background": {"type": "solid", "color": "#F4EBDD"},
+    "elements": [
+        {"id": "t", "type": "text", "text": "图表也是元素",
+         "box": [150, 90, 1620, 90], "style": {"size": 50, "font": "Songti SC Bold", "color": "#2B2420"}},
+        {"id": "ch", "type": "chart", "box": [150, 200, 1620, 760],
+         "chart": {"kind": "line", "labels": ["1月", "2月", "3月", "4月"],
+                   "series": {"会员数": [1200, 1800, 2600, 3900], "复购率": [12, 15, 19, 24]},
+                   "title": "增长趋势"}},
+    ],
+}
+
+DIAGRAM = {
+    "background": {"type": "solid", "color": "#F4EBDD"},
+    "elements": [
+        {"id": "dg", "type": "diagram", "box": [130, 120, 1660, 900],
+         "diagram": {"kind": "swimlane", "title": "采购商入驻与下单",
+                     "subtitle": "两泳道 · 三阶段 · 一个定制点",
+                     "stages": ["① 扫码", "② 入驻", "③ 下单"],
+                     "lanes": [["采购商", ["扫门店码", "上传执照", "选品下单"]],
+                               ["系统", ["绑定门店关系", "校验资质", "注入采购价"]]],
+                     "highlight": [[1, 2]]}},
+    ],
+}
+
+
 def main() -> None:
     deck = Deck.create(theme="乳色纸")
-    for i, spec in enumerate([COVER, CARDS], start=1):
+    for i, spec in enumerate([COVER, CARDS, CHART, DIAGRAM], start=1):
         deck.add_slide("空白")
         result = apply_page(deck, i, spec)
         print(f"第 {i} 页：{result['elements']} 元素，revision {result['revision']}")
