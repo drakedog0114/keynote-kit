@@ -130,6 +130,26 @@ installed, so both renderers substituted different fallbacks — 95.4 % is a flo
 ceiling. Installing the font (`HarmonyOS Sans SC` is Apache-2.0) makes Keynote render the
 design as intended.
 
+## [0.5.1] - 2026-11-02
+
+Documentation sync: the Chinese README had fallen behind the English one, and two docs had no translation.
+
+### Fixed
+- **`README.zh-CN.md` was missing four sections** — "Building a page from a spec", "Project
+  layout", "Roadmap" and "Contributing" — plus everything added in 0.3.0–0.5.0 (visual
+  polish, progressive reveal, the import-don't-rebuild finding, the font check and the
+  audit/compare tools). It was 147 lines against the English 319; both are now 17 sections.
+- **`docs/mcp-integration.zh-CN.md`** created (the English version had no translation).
+- **`docs/quality-guide.md`** created (the Chinese version had no translation).
+- `README.md` now states the import-vs-rebuild result with the measured numbers, and how to
+  check fonts before trusting any fidelity figure.
+
+### Added
+- **`tools/check_docs.py`** — verifies every document has a bilingual counterpart and that
+  both READMEs carry the same sections. It is wired into `tools/test_capabilities.py`
+  (now 20 assertions), so a missing translation fails the test run rather than being
+  noticed months later.
+
 ## [Unreleased]
 
 ### Planned

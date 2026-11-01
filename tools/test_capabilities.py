@@ -242,6 +242,14 @@ function run(argv) {
     check("fit：矮框不乱缩", els[0]["style"]["size"] == 96,
           f"96 → {els[0]['style']['size']}")
 
+    # ── 9. 文档中英配对 ───────────────────────────────────────
+    import subprocess
+    repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    res = subprocess.run([sys.executable, os.path.join(repo, "tools", "check_docs.py")],
+                         capture_output=True, text=True)
+    check("文档：每个文档都有中英两版，README 章节对齐",
+          res.returncode == 0, (res.stdout + res.stderr).strip()[:200])
+
     deck.close()
     print(f"\n通过 {len(PASS)} 项，失败 {len(FAIL)} 项")
     if FAIL:

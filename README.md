@@ -169,7 +169,7 @@ measurements and known limits.
 {"type": "image", "path": "photo.jpg", "box": [60, 160, 700, 350],
  "style": {"radius": 40, "crop": "cover"}}     # rounded, cropped
 {"type": "text", "text": long_copy, "box": [80, 300, 760, 150],
- "style": {"size": 42, "fit": True}}            # auto-shrink to fit
+ "style": {"size": 42}}                        # auto-fit is on by default ("auto")
 {"type": "rich", "box": [100, 300, 900, 140], "link": "https://example.com",
  "paragraphs": [{"align": "left", "runs": [{"text": "link", "size": 24}]}]}
 ```
@@ -210,7 +210,17 @@ elements, empty boxes and overflow risk.
 
 ## Re-using a deck for another client
 
-Proposal decks get re-used — same structure, new client, new numbers. Import rather than rebuild:
+Proposal decks get re-used — same structure, new client, new numbers. **Import rather than
+rebuild.** Measured on a real 22-page client deck (74 groups, 122 auto shapes):
+
+| route | time | similarity to the source |
+|---|---|---|
+| **native import** | **4 s** | **95.4 %** |
+| rebuild from spec | 596 s | 89.5 % (worst page 49.9 %) |
+
+Native import wins on both axes, so real decks get imported and their **content** changed
+— not their geometry. Rebuilding drops auto-shape fills (dark panels come out white),
+freeforms and group transforms.
 
 ```bash
 # 1) native import (13 s for a 434 MB / 59-page deck, 96.5% pixel fidelity, videos kept)
@@ -230,6 +240,32 @@ of reach for text replacement and have to be regenerated.
 
 Full checklist: [docs/client-swap.md](docs/client-swap.md).
 
+### Check the fonts before you judge fidelity
+
+A missing font caps the fidelity of any conversion: Keynote **and** a reference renderer both
+silently substitute a fallback, and the two fallbacks differ — so a pixel comparison measures
+the difference between two fallbacks, not the design.
+
+```bash
+unzip -o deck.pptx -d /tmp/x
+grep -oh 'typeface="[^"]*"' /tmp/x/ppt/slides/*.xml | sort | uniq -c | sort -rn
+```
+
+`HarmonyOS Sans SC` is Apache-2.0 and free (<https://github.com/huawei-fonts/HarmonyOS-Sans>);
+the archive is Git LFS, so fetch it from
+`media.githubusercontent.com/media/<owner>/<repo>/<ref>/<path>`.
+
+### Comparing two renders
+
+```bash
+soffice --headless --convert-to pdf deck.pptx && pdftoppm -png -r 72 deck.pdf /tmp/ref
+python tools/compare.py /tmp/ref /tmp/out --min 90
+```
+
+Prints average / median / worst similarity per page and exits non-zero below `--min`, so it
+can gate a pipeline.
+
+
 ## Shrinking an existing deck
 
 Keynote has no "reduce file size" command. `tools/compress_deck.py` rewrites the package media
@@ -244,7 +280,7 @@ Read the four traps first: [docs/compression.md](docs/compression.md).
 
 ## MCP server
 
-`keynote-kit` ships a complete MCP server — **no other MCP is required**. 41 tools covering
+`keynote-kit` ships a complete MCP server — **no other MCP is required**. 53 tools covering
 documents, pages, text, shapes, images, tables, charts, diagrams, layout, notes, export and
 slideshow control.
 
@@ -268,13 +304,14 @@ Full tool catalogue and client configs: [docs/mcp-server.md](docs/mcp-server.md)
 |---|---|---|---|
 | Capability matrix | [capabilities.md](docs/capabilities.md) | [中文](docs/capabilities.zh-CN.md) | 29 rows: keynote-kit vs iwork-mcp vs native AppleScript |
 | Scripting traps | [gotchas.md](docs/gotchas.md) | [中文](docs/gotchas.zh-CN.md) | 13 Keynote defects and their workarounds |
-| MCP server | [mcp-server.md](docs/mcp-server.md) | [中文](docs/mcp-server.zh-CN.md) | 41 tools, client configs, migration table |
+| MCP server | [mcp-server.md](docs/mcp-server.md) | [中文](docs/mcp-server.zh-CN.md) | 53 tools, client configs, migration table |
 | Diagrams | [diagrams.md](docs/diagrams.md) | [中文](docs/diagrams.zh-CN.md) | Data specs for swimlane / hierarchy / integration |
 | **Deck compression** | [compression.md](docs/compression.md) | [中文](docs/compression.zh-CN.md) | Shrinking `.key` files safely, and the four traps |
 | **Audit** | — | — | `tools/audit_styles.py`: find style problems in an existing deck |
+| **Quality guide** | [quality-guide.md](docs/quality-guide.md) | [中文](docs/quality-guide.zh-CN.md) | What "good" looks like, and how to check it |
 | **Visual polish** | [visuals.md](docs/visuals.md) | [中文](docs/visuals.zh-CN.md) | Rounded images, text auto-fit, z-order, transitions, hyperlinks |
 | **Client swap** | [client-swap.md](docs/client-swap.md) | [中文](docs/client-swap.zh-CN.md) | Re-use a deck for a different client: import, rewrite, re-brand, verify |
-| MCP integration | [mcp-integration.md](docs/mcp-integration.md) | — | Co-existing with other MCP servers |
+| MCP integration | [mcp-integration.md](docs/mcp-integration.md) | [中文](docs/mcp-integration.zh-CN.md) | Co-existing with other MCP servers |
 | Examples | [examples/](examples/) | — | hello deck, full demo, diagram gallery |
 
 ## Project layout
