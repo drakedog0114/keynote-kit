@@ -144,6 +144,79 @@ def card_png(fill: str, width: float, height: float, radius: int = 24,
     return path
 
 
+FIT_DIR = os.path.expanduser("~/.cache/keynote-kit/fit")
+
+
+def _trim(path: str) -> str:
+    """裁掉透明边（图/流程图模板常留大片空白），让内容真正填满 box。"""
+    try:
+        with Image.open(path) as im:
+            if im.mode != "RGBA":
+                return path
+            bbox = im.getchannel("A").getbbox()
+            if bbox and bbox != (0, 0, im.width, im.height):
+                im.crop(bbox).save(path)
+    except Exception:  # noqa: BLE001
+        pass
+    return path
+
+
+def _hash_name(prefix: str, cfg) -> str:
+    import json as _json
+    os.makedirs(FIT_DIR, exist_ok=True)
+    key = hashlib.sha1(_json.dumps(cfg, sort_keys=True, ensure_ascii=False).encode()).hexdigest()[:16]
+    return os.path.join(FIT_DIR, f"{prefix}_{key}.png")
+
+
+def chart_png(cfg: dict) -> str:
+    """条形 / 折线 / 环形图，透明底，自动贴合主题。"""
+    from . import charts as ch
+
+    path = _hash_name("chart", cfg)
+    if os.path.exists(path):
+        return path
+    kind = cfg.get("kind", "bar")
+    labels = cfg.get("labels") or []
+    title = cfg.get("title", "")
+    if kind == "bar":
+        ch.bar_chart(labels, cfg.get("values") or [], title=title, path=path,
+                     color=cfg.get("color", ch.ACCENT), value_suffix=cfg.get("suffix", ""))
+    elif kind == "line":
+        ch.line_chart(labels, cfg.get("series") or {}, title=title, path=path)
+    elif kind == "donut":
+        ch.donut_chart(labels, cfg.get("values") or [], title=title, path=path)
+    else:
+        raise SpecError(f"chart.kind 不支持：{kind}")
+    return _trim(path)
+
+
+def diagram_png(cfg: dict) -> str:
+    """泳道 / 层级 / 集成信息图。"""
+    from . import diagrams as dg
+
+    path = _hash_name("diagram", cfg)
+    if os.path.exists(path):
+        return path
+    kind = cfg.get("kind", "swimlane")
+    pal = dg.PAPER if cfg.get("palette", "paper") == "paper" else dg.BLUE
+    if kind == "swimlane":
+        dg.swimlane(stages=cfg.get("stages") or [], lanes=cfg.get("lanes") or [],
+                    out=path, title=cfg.get("title", ""), kicker=cfg.get("kicker", "PROCESS"),
+                    subtitle=cfg.get("subtitle"), highlight={tuple(h) for h in cfg.get("highlight", [])},
+                    palette=pal)
+    elif kind == "hierarchy":
+        dg.hierarchy(rows=cfg.get("rows") or [], cards=cfg.get("cards") or [],
+                     out=path, title=cfg.get("title", ""), kicker=cfg.get("kicker", "GOVERNANCE"),
+                     subtitle=cfg.get("subtitle"), palette=pal)
+    elif kind == "integration":
+        dg.integration(lanes=cfg.get("lanes") or [], out=path, title=cfg.get("title", ""),
+                       kicker=cfg.get("kicker", "INTEGRATION"), subtitle=cfg.get("subtitle"),
+                       palette=pal)
+    else:
+        raise SpecError(f"diagram.kind 不支持：{kind}")
+    return _trim(path)
+
+
 # ────────────────────────── spec 校验 ──────────────────────────
 def normalise(spec: dict):
     if not isinstance(spec, dict):
@@ -167,7 +240,7 @@ def normalise(spec: dict):
         if not (isinstance(box, (list, tuple)) and len(box) == 4):
             raise SpecError(f"第 {i} 个元素 box 必须是 [x, y, w, h]")
         kind = raw.get("type", "text")
-        if kind not in ("text", "shape", "image", "table", "card"):
+        if kind not in ("text", "shape", "image", "table", "card", "chart", "diagram"):
             raise SpecError(f"第 {i} 个元素类型不支持：{kind}")
         eid = str(raw.get("id") or f"{kind}{i}")
         if eid in ids:
@@ -180,6 +253,10 @@ def normalise(spec: dict):
             if not path or not os.path.exists(path):
                 raise SpecError(f"图片不存在：{path}")
             item["path"] = os.path.abspath(path)
+        if kind == "chart":
+            item["path"] = chart_png(raw.get("chart") or {})
+        if kind == "diagram":
+            item["path"] = diagram_png(raw.get("diagram") or {})
         if kind == "card":
             st = item["style"]
             item["path"] = card_png(
@@ -196,6 +273,16 @@ def normalise(spec: dict):
             if not data:
                 raise SpecError(f"表格 {eid} 缺少 data")
             item["data"] = data
+        # 图片类保持比例：偏差 >5% 时按 PNG 真实比例修正高度，避免拉伸
+        if kind in ("image", "chart", "diagram") and item.get("path"):
+            try:
+                with Image.open(item["path"]) as im:
+                    pw, ph = im.size
+                bw, bh = item["box"][2], item["box"][3]
+                if bw > 0 and ph > 0 and abs((bh / bw) - (ph / pw)) / (ph / pw) > 0.05:
+                    item["box"][3] = round(bw * ph / pw, 1)
+            except Exception:  # noqa: BLE001
+                pass
         out.append(item)
     return bg, out
 
@@ -238,7 +325,7 @@ function run(argv) {
     } else if (el.type === 'shape') {
       slide.shapes.push(K.Shape({ objectText: el.text }));
       styleParas(slide.shapes[slide.shapes.length - 1], st);
-    } else if (el.type === 'image' || el.type === 'card') {
+    } else if (['image', 'card', 'chart', 'diagram'].indexOf(el.type) >= 0) {
       slide.images.push(K.Image({ file: Path(el.path) }));
     } else if (el.type === 'table') {
       const rows = el.data.length;
@@ -328,7 +415,7 @@ def _locate(lists: dict, plan, keys) -> dict:
     used, out = {}, {}
     for item in plan:
         eid, kind = item["id"], item["type"]
-        pool = lists.get("image" if kind == "card" else kind, [])
+        pool = lists.get("image" if kind in ("card", "chart", "diagram") else kind, [])
         if kind == "text" or (kind == "shape" and item.get("text")):
             base, kth = keys.get(eid, ("", 1))
             seen = 0
@@ -341,7 +428,7 @@ def _locate(lists: dict, plan, keys) -> dict:
                         out[eid] = (kind, i)
                         used[(kind, i)] = eid
                         break
-        elif kind in ("image", "card"):
+        elif kind in ("image", "card", "chart", "diagram"):
             base = os.path.basename(item["path"])
             for i, name in enumerate(pool, start=1):
                 if used.get((kind, i)):
@@ -374,7 +461,7 @@ def _locate(lists: dict, plan, keys) -> dict:
 def _apply_geometry(doc: str, slide: int, plan, located: dict) -> dict:
     """按下标设几何 + 批量回读位置。"""
     coll = {"text": "text item", "shape": "shape", "image": "image",
-            "table": "table", "card": "image"}
+            "table": "table", "card": "image", "chart": "image", "diagram": "image"}
     blocks = []
     for item in plan:
         hit = located.get(item["id"])

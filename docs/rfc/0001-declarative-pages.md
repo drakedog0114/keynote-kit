@@ -370,3 +370,40 @@ kk_extract_page(doc, slide, background="#F4EBDD")
 
 用途：把已有页面读成 spec，改几处后 `kk_page` 写回；或把老稿的一页搬到新 deck 做起点。
 注意它同样只取元素，不取装饰。
+
+---
+
+## 12. P3：`chart` 与 `diagram` 成为声明式元素（2026-11-01）
+
+### 12.1 新增两种元素类型
+
+```json
+{"id": "ch", "type": "chart", "box": [150, 170, 1620, 760],
+ "chart": {"kind": "bar|line|donut", "labels": [...], "values": [...],
+           "series": {...}, "title": "...", "color": "#1F3A5F", "suffix": "d"}}
+
+{"id": "dg", "type": "diagram", "box": [130, 140, 1660, 880],
+ "diagram": {"kind": "swimlane|hierarchy|integration", "title": "...",
+              "stages": [...], "lanes": [...], "highlight": [[1, 2]],
+              "palette": "paper|blue"}}
+```
+
+内部调用 `charts.*` / `diagrams.*` 渲染 PNG，按配置哈希缓存到
+`~/.cache/keynote-kit/fit/`，再当作图片插入。
+
+### 12.2 两处精度修正
+
+| 问题 | 修正 |
+|---|---|
+| 图表/信息图模板自带大片透明留白，塞进 box 后内容偏小 | 渲染后按 alpha bbox **裁掉透明边** |
+| 图片类元素被 box 强制拉伸变形 | 长宽比偏差 >5% 时按 PNG 真实比例**修正高度** |
+
+### 12.3 效果
+
+- 一页 = 标题 + 图表 + 泳道图，4 个元素，2–3 秒
+- 图表/泳道图与卡片同一套 spec 语法，不用再手动 `charts.bar_chart()` + `add_image()`
+
+### 12.4 注意
+
+- `diagram` 信息密度高，**大于半页**才有可读性；半页以下建议直接截图或用 card 承载
+- 图表文字由 matplotlib 渲染，字体走系统回退（Hiragino 无 bold 时会降级），不影响观感
