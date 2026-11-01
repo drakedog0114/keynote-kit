@@ -1,5 +1,7 @@
 # Capability matrix
 
+**English** · [简体中文](capabilities.zh-CN.md)
+
 Measured on **macOS 27.0.1 + Keynote Creator Studio 15.4** with
 [iwork-mcp](https://github.com/reichenbach/iwork_mcp) 0.8.8 as the baseline.
 Legend: ✅ works · ⚠️ works with a caveat · ❌ not possible

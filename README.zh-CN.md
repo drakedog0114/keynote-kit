@@ -111,12 +111,14 @@ python -m keynote_kit.mcp_server
 
 ## 文档
 
-| 文档 | 内容 |
-|---|---|
-| [docs/capabilities.md](docs/capabilities.md) | 28 项能力矩阵：keynote-kit vs iwork-mcp vs 原生脚本 |
-| [docs/gotchas.md](docs/gotchas.md) | Keynote 脚本的 10 个坑与对应解法 |
-| [docs/mcp-integration.md](docs/mcp-integration.md) | 与 MCP 服务器共存的两种方式 |
-| [examples/](examples/) | 可直接运行的示例 |
+| 文档 | 中文 | English | 内容 |
+|---|---|---|---|
+| 能力矩阵 | [中文](docs/capabilities.zh-CN.md) | [EN](docs/capabilities.md) | 29 项：keynote-kit vs iwork-mcp vs 原生脚本 |
+| 踩坑手册 | [中文](docs/gotchas.zh-CN.md) | [EN](docs/gotchas.md) | 13 个 Keynote 脚本缺陷与解法 |
+| MCP 服务 | [中文](docs/mcp-server.zh-CN.md) | [EN](docs/mcp-server.md) | 41 个工具、客户端配置、迁移对照 |
+| 信息图 | [中文](docs/diagrams.zh-CN.md) | [EN](docs/diagrams.md) | 泳道图 / 层级图 / 集成图的数据结构 |
+| MCP 共存 | — | [EN](docs/mcp-integration.md) | 与其他 MCP 服务器并用 |
+| 示例 | — | [examples/](examples/) | 可直接运行的示例 |
 
 ## 已知限制
 

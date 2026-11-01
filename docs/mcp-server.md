@@ -1,5 +1,7 @@
 # MCP server reference
 
+**English** · [简体中文](mcp-server.zh-CN.md)
+
 `keynote-kit` ships a **complete** MCP server for Keynote. You do **not** need iwork-mcp,
 AppleScript wrappers, or any other MCP: every capability below is implemented in this repo.
 

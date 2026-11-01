@@ -334,7 +334,7 @@ def _add_chart(a):
       S(doc=DOC, slide=SLIDE,
         kind=P("string", "swimlane | hierarchy | integration", True,
                enum=["swimlane", "hierarchy", "integration"]),
-        spec=P("object", "图形数据，字段见 docs/diagrams.md", True),
+        spec=P("object", "图形数据，字段见 docs/diagrams.md / docs/diagrams.zh-CN.md", True),
         x=P("number", "X"), y=P("number", "Y"),
         w=P("number", "宽"), h=P("number", "高")))
 def _add_diagram(a):

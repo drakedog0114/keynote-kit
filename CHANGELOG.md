@@ -14,6 +14,8 @@ versioning follows [Semantic Versioning](https://semver.org/).
 ## [0.1.0] — 2026-11-01
 
 ### Added
+- Bilingual documentation: every core doc now ships an English and a Simplified Chinese
+  version (`*.md` + `*.zh-CN.md`), including a new `docs/diagrams.md` data reference.
 - **Complete MCP server** (`python -m keynote_kit.mcp_server`, 41 tools): documents, pages,
   text, shapes, images, tables, charts, diagrams, layout, notes, export, slideshow.
   No dependency on iwork-mcp.

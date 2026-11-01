@@ -1,5 +1,7 @@
 # Keynote scripting traps
 
+**English** · [简体中文](gotchas.zh-CN.md)
+
 Every entry was reproduced on macOS 27.0.1 + Keynote Creator Studio 15.4.
 Each one is worked around inside `keynote_kit`.
 

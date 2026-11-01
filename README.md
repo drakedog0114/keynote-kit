@@ -137,12 +137,14 @@ Full tool catalogue and client configs: [docs/mcp-server.md](docs/mcp-server.md)
 
 ## Documentation
 
-| Doc | Contents |
-|---|---|
-| [docs/capabilities.md](docs/capabilities.md) | Full capability matrix: keynote-kit vs iwork-mcp vs native AppleScript |
-| [docs/gotchas.md](docs/gotchas.md) | Every Keynote scripting trap we hit, with the workaround |
-| [docs/mcp-integration.md](docs/mcp-integration.md) | Using keynote-kit alongside an MCP server (or wrapping it as one) |
-| [examples/](examples/) | Runnable examples: hello deck, full demo, diagram gallery |
+| Doc | EN | 中文 | Contents |
+|---|---|---|---|
+| Capability matrix | [capabilities.md](docs/capabilities.md) | [中文](docs/capabilities.zh-CN.md) | 29 rows: keynote-kit vs iwork-mcp vs native AppleScript |
+| Scripting traps | [gotchas.md](docs/gotchas.md) | [中文](docs/gotchas.zh-CN.md) | 13 Keynote defects and their workarounds |
+| MCP server | [mcp-server.md](docs/mcp-server.md) | [中文](docs/mcp-server.zh-CN.md) | 41 tools, client configs, migration table |
+| Diagrams | [diagrams.md](docs/diagrams.md) | [中文](docs/diagrams.zh-CN.md) | Data specs for swimlane / hierarchy / integration |
+| MCP integration | [mcp-integration.md](docs/mcp-integration.md) | — | Co-existing with other MCP servers |
+| Examples | [examples/](examples/) | — | hello deck, full demo, diagram gallery |
 
 ## Project layout
 
