@@ -51,7 +51,10 @@ def main() -> int:
         check("导出 PNG 序列", lambda: deck.export("out/probe-images", "images"))
         check("保存 .key", lambda: deck.save("out/probe.key"))
         check("导出 PPTX", lambda: deck.export("out/probe.pptx", "PowerPoint"))
-        check("导出 PDF（预期失败）", lambda: deck.export("out/probe.pdf", "PDF"))
+        check("导出 PDF（原生，预期空白/失败）", lambda: _native_pdf(deck))
+        check("导出 PDF（合成，可靠）", lambda: deck.export_pdf("out/probe-composed.pdf"))
+        check("演讲者备注", lambda: deck.set_notes(slide, "test note"))
+        check("复制页面", lambda: f"total={deck.duplicate_slide(2)}")
     finally:
         deck.close()
 
@@ -63,6 +66,14 @@ def main() -> int:
     failed = sum(1 for _, ok, _ in RESULTS if not ok)
     print(f"\n{len(RESULTS) - failed}/{len(RESULTS)} 通过")
     return 0
+
+
+def _native_pdf(deck) -> str:
+    try:
+        out = deck.export("out/probe-native.pdf", "PDF")
+        raise AssertionError(f"原生 PDF 竟然成功了：{out}（请检查是否为空白页）")
+    except Exception:
+        return "native PDF is unusable as expected"
 
 
 def _png() -> str:
