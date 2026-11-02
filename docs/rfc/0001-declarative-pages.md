@@ -1,6 +1,6 @@
 # RFC 0001 · 用「声明式页面」重做 keynote-kit 的编辑模型
 
-状态：**草案（待评审）** · 2026-11-01 · 作者：Drakedog + DeepSeek Harness
+状态：**草案（待评审）** · 2026-11-01 · 作者：Drakedog
 
 ---
 
