@@ -5,5 +5,5 @@
 from .deck import Deck
 from .runner import KeynoteError
 
-__version__ = "0.6.0"
+__version__ = "0.6.1"
 __all__ = ["Deck", "KeynoteError", "__version__"]

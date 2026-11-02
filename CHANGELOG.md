@@ -185,6 +185,27 @@ Public release: rewritten READMEs, an editing-capability matrix, and no client n
   brand names had to go. They are replaced by generic placeholders (`甲珠宝` / `乙珠宝`,
   `某宠物品牌`, `零售平台`).
 
+## [0.6.1] - 2026-11-02
+
+Stop stealing the foreground, and clean up after every verification run.
+
+### Changed
+- **The library no longer takes the foreground by default.** Pasting RTF is Cmd+V, which
+  only works when Keynote is frontmost — but a script silently stealing your window is
+  rude. `require_foreground()` now raises `ForegroundError` and explains what to do.
+  Set `KK_TAKEOVER=1` to allow the takeover.
+- **Paste re-checks the frontmost app right before Cmd+V.** A full-screen app can grab the
+  focus in between; it now re-activates and retries instead of pasting into someone else's
+  window. This also removed an intermittent "reveal" test failure.
+- **One activation instead of two** in the paste path.
+- The verification tools (`tools/test_capabilities.py`, `tools/probe_editing.py`) now say
+  out loud that they will switch to Keynote, and they close **every** scratch document
+  afterwards — including the ones a failed probe created on its way out.
+
+### Added
+- `keynote_kit.runner.require_foreground()`, `activate_keynote()`, `frontmost_app()` and
+  `close_scratch_documents()`.
+
 ## [Unreleased]
 
 ### Planned

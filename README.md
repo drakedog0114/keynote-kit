@@ -367,6 +367,7 @@ tests/           smoke tests (require Keynote)
 | Wanted | Reality |
 |---|---|
 | Build animations ("appear", "fly in") | no API — use *progressive reveal* instead |
+| Pasting in the background | impossible — Cmd+V needs Keynote in front. The library refuses to steal the focus unless you set `KK_TAKEOVER=1` |
 | Image crop & mask | no API — pre-rendered locally |
 | Single-page background fill, master editing | no script-level API (`slide layout` is read-only) |
 | Table cell colour, row height, add/remove rows | not exposed |

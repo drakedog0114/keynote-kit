@@ -15,6 +15,7 @@
 
 from __future__ import annotations
 
+import os
 import pathlib
 import sys
 import time
@@ -22,7 +23,7 @@ import time
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 
 from keynote_kit import Deck  # noqa: E402
-from keynote_kit.runner import applescript, esc_text, jxa  # noqa: E402
+from keynote_kit.runner import applescript, close_scratch_documents, esc_text, jxa  # noqa: E402
 
 RESULTS: list[tuple[str, str, bool, str]] = []
 
@@ -113,12 +114,18 @@ def record(area, name, ok, detail):
 
 
 def main() -> int:
+    os.environ.setdefault("KK_TAKEOVER", "1")
+    print("（本轮会切到 Keynote 跑真机探测，跑完自动关闭临时文稿）")
     print(f"探测文档：{ensure()}\n")
     try:
         run_tests()
     finally:
         if DECK:
             DECK.close(save=False)
+        # 收干净：探针中途可能换过文稿，不能只关最后那一份
+        n = close_scratch_documents()
+        if n:
+            print(f"\n（已关闭 {n} 个临时文稿）")
     area = None
     for a, n, ok, d in RESULTS:
         if a != area:

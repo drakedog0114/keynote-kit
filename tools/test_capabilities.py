@@ -24,7 +24,7 @@ from keynote_kit.animate import (  # noqa: E402
 from keynote_kit.imaging import fit_text, measure, prepare_image  # noqa: E402
 from keynote_kit.page import apply_page  # noqa: E402
 from keynote_kit.richtext import build_rtf, paste_rich_text  # noqa: E402
-from keynote_kit.runner import jxa  # noqa: E402
+from keynote_kit.runner import close_scratch_documents, jxa  # noqa: E402
 
 PASS, FAIL = [], []
 
@@ -56,6 +56,19 @@ function run(argv) {
 
 
 def main() -> int:
+    # 这轮验证会驱动 Keynote（粘贴必须前台），所以明说一声，
+    # 并且跑完把临时文稿全部关掉，不留一堆「未命名」窗口。
+    os.environ.setdefault("KK_TAKEOVER", "1")
+    print("（本轮会切到 Keynote 跑真机断言，跑完自动关闭临时文稿）")
+    try:
+        return _run()
+    finally:
+        n = close_scratch_documents()
+        if n:
+            print(f"（已关闭 {n} 个临时文稿）")
+
+
+def _run() -> int:
     tmp = tempfile.mkdtemp(prefix="kk-cap-")
     src = os.path.join(tmp, "wide.png")
     Image.new("RGB", (800, 400), (40, 70, 120)).save(src)
@@ -250,7 +263,6 @@ function run(argv) {
     check("文档：每个文档都有中英两版，README 章节对齐",
           res.returncode == 0, (res.stdout + res.stderr).strip()[:200])
 
-    deck.close()
     print(f"\n通过 {len(PASS)} 项，失败 {len(FAIL)} 项")
     if FAIL:
         print("失败：", ", ".join(FAIL))

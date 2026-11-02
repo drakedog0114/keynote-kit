@@ -212,3 +212,22 @@ Keynote text boxes never clip; text spills downwards. Many decks deliberately gi
 96 pt title a 60 pt box. A naive "does the text fit the box" check flags all of them.
 That is why auto-fit defaults to `"auto"`: it only shrinks when the text would fall off
 the canvas, or overflow a multi-line box by more than 25 %.
+
+## Nine. Driving the app takes the foreground — but it should not steal it silently
+
+Pasting RTF is done with Cmd+V, which only works when Keynote is the frontmost
+application. There is no background-paste API.
+
+`keynote-kit` therefore **refuses to take the focus by default**:
+
+```python
+from keynote_kit.runner import require_foreground
+require_foreground()          # Keynote not in front → ForegroundError, nothing is stolen
+```
+
+Set `KK_TAKEOVER=1` to allow the script to bring Keynote forward — the verification
+tools do this, announce it, and close every scratch document afterwards.
+
+Paste also re-checks the frontmost app immediately before sending Cmd+V, because a
+full-screen app can steal the focus in between; it re-activates and retries instead of
+pasting into someone else's window.

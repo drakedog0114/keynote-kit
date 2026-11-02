@@ -14,7 +14,7 @@ import subprocess
 import tempfile
 import time
 
-from .runner import applescript, esc_text
+from .runner import applescript, esc_text, require_foreground
 
 ALIGN_CODE = {"left": "ql", "center": "qc", "right": "qr", "justify": "qj"}
 
@@ -100,23 +100,39 @@ def paste_rich_text(doc: str, slide: int, paragraphs: list[dict], box: list[floa
         fh.write(rtf)
         path = fh.name
     x, y, w, h = (int(round(v)) for v in box)
+    # Cmd+V 只有在 Keynote 是前台应用时才有效。
+    # 默认**不抢占**用户的窗口：前台不是 Keynote 就直接报错并说明怎么办；
+    # 需要无人值守批处理时设 KK_TAKEOVER=1。
+    require_foreground()
     try:
-        # 冷启动时 Keynote 可能还没拿到前台，粘贴会落到别的 app 上，
-        # 所以这里：激活 → 等待 → 粘贴 → 校验选中项，失败重试一次。
+        # 激活 → 等待 → 粘贴 → 校验选中项，失败重试一次。
         last = ""
         for attempt in range(2):
             try:
                 last = applescript(f'''
 tell application "Keynote"
   activate
-  delay 0.25
+  delay 0.3
   tell document {esc_text(doc)} to set current slide to slide {slide}
 end tell
 delay 0.2
 set theRTF to (read (POSIX file "{path}") as «class RTF »)
 set the clipboard to theRTF
-tell application "Keynote" to activate
-delay 0.25
+delay 0.2
+-- 粘贴前确认前台确实是 Keynote：全屏应用会抢焦点，
+-- 抢走的话 Cmd+V 就落到别的 app 上去了。
+tell application "System Events"
+  set fg to name of first application process whose frontmost is true
+end tell
+if fg is not "Keynote" then
+  tell application "Keynote" to activate
+  delay 0.5
+  tell application "System Events"
+    set fg to name of first application process whose frontmost is true
+  end tell
+  if fg is not "Keynote" then return "NO_FOCUS"
+end if
+delay 0.15
 tell application "System Events"
   keystroke "v" using command down
 end tell
@@ -139,11 +155,13 @@ tell application "Keynote"
 end tell''', timeout=timeout)
             except Exception as exc:  # noqa: BLE001
                 last = f"ERR {exc}"
-            if last and "NO_SELECTION" not in last and "BAD_TARGET" not in last:
+            if last and all(k not in last for k in ("NO_SELECTION", "BAD_TARGET", "NO_FOCUS")):
                 break
             time.sleep(0.6)
-        if "NO_SELECTION" in last or "BAD_TARGET" in last or last.startswith("ERR"):
-            raise RuntimeError(f"RTF 粘贴失败：{last}")
+        if any(k in last for k in ("NO_SELECTION", "BAD_TARGET", "NO_FOCUS")) or last.startswith("ERR"):
+            hint = ("（拿不到前台焦点，可能有全屏应用在抢；"
+                    "可以把 Keynote 手动切到前台再试）" if "NO_FOCUS" in last else "")
+            raise RuntimeError(f"RTF 粘贴失败：{last}{hint}")
     finally:
         os.unlink(path)
     return {"box": [x, y, w, h], "pasted": True}
