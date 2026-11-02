@@ -44,7 +44,7 @@
 | `footer` | `string` | bottom note |
 | `title` / `subtitle` | `string` | header block |
 
-`direction` is free text containing an arrow, e.g. `"SAP → 零售平台"`; the renderer uses it to pick
+`direction` is free text containing an arrow, e.g. `"ERP → 平台"`; the renderer uses it to pick
 the arrow direction and colour. `both: true` draws a double-headed arrow.
 
 ## Palette

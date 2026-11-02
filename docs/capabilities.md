@@ -96,3 +96,38 @@ On a 22-page deck with 74 groups and 122 auto shapes:
 Native import wins on both axes — so **import real decks, do not rebuild them**.
 Use the spec pipeline for pages you author yourself, and `replace_text.py` to adapt
 content in an imported deck (it preserves every paragraph's size, font and colour).
+
+## Editing capabilities
+
+Creating pages is only half of it — the harder half is changing what already exists.
+`tools/probe_editing.py` probes these against the real app and **reads the value back**
+after every write.
+
+| Operation | Status | Notes |
+|---|---|---|
+| Replace a text box's content | ✅ | paragraph size / font / colour survive |
+| Add or remove a paragraph | ✅ | `set object text to a & return & b` |
+| Move an element | ✅ | |
+| Resize an element | ✅ | |
+| Delete an element | ✅ | |
+| Change paragraph size / colour / font | ✅ **JXA only** | the AppleScript `paragraph` class exposes *no* properties |
+| Change table cell text | ✅ | |
+| Merge / unmerge cells | ✅ | `merge (range "A1:B1" of table 1 of slide N of it)` |
+| Add or delete table rows | ❌ | no such command in the sdef |
+| Cell colour, row height | ❌ | |
+| Duplicate a text box or image | ❌ | `Text items can not be copied. (-1717)` |
+| Transitions, opacity, rotation | ✅ | rotation: shapes and images, not text boxes |
+| Add / delete / duplicate slides | ✅ | |
+| Speaker notes | ✅ | `presenter notes of slide N` |
+| Switch master layout | ✅ | `base layout of slide N` |
+| Hide the title placeholder | ✅ | `title showing of slide N` |
+| Slide background fill | ❌ | read-only |
+| Change the canvas size | ✅ | |
+| Replace the font across a deck | ✅ | |
+| Change a document's name | ✅ **JXA only** | AppleScript refuses |
+| Paragraph alignment | ❌ | set it in the RTF at creation time |
+| Build animations | ❌ | no API — use *progressive reveal* |
+
+Two traps: the colour **setter** takes `0–65535` while the **getter** returns `0–1` floats;
+and `slide.textItems[length - 1]` is not the element you just created — theme placeholders
+enumerate after pushed items, so style the local reference.

@@ -33,14 +33,16 @@ def headings(path: str) -> list[str]:
 # 检查时能直接报出「中文版缺哪一节」，而不是只报一个数量差。
 README_SECTIONS = [
     ("Why this exists", "为什么做这个"),
+    ("At a glance", "速览"),
     ("Features", "能力一览"),
     ("Requirements", "环境要求"),
     ("Install", "安装"),
     ("Quick start", "快速开始"),
     ("Gallery", "效果"),
     ("Building a page from a spec", "声明式建页（首选）"),
+    ("Working with a real deck", "处理真实稿件"),
     ("Visual polish", "视觉打磨"),
-    ("Re-using a deck for another client", "客户换稿（把 A 客户的方案变成 B 客户）"),
+    ("Editing capabilities", "编辑能力"),
     ("Shrinking an existing deck", "压缩已有文稿"),
     ("MCP server", "MCP 服务"),
     ("Documentation", "文档"),

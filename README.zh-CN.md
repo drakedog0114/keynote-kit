@@ -1,6 +1,13 @@
 # keynote-kit
 
-> 用 Python 精确驱动 Apple Keynote：精确排版、原生表格、图表与信息图。
+**用 Python 驱动 Apple Keynote。** 产出真正的 `.key` 文件——坐标精确、表格原生、
+图表与信息图齐备，还补上了 Keynote 压根没开放的编辑能力。
+
+[![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
+[![macOS](https://img.shields.io/badge/macOS-14%2B-lightgrey.svg)](https://www.apple.com/macos/)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![MCP tools](https://img.shields.io/badge/MCP-53%20tools-purple.svg)](docs/mcp-server.md)
+[![Version](https://img.shields.io/badge/release-v0.6.0-orange.svg)](https://github.com/drakedog0114/keynote-kit/releases)
 
 [English](README.md) · **简体中文**
 
@@ -8,8 +15,8 @@
 
 ## 为什么做这个
 
-Keynote 的脚本接口（AppleScript / JXA）比看上去薄得多。我们对 iwork-mcp 0.8.8 + Keynote Creator
-Studio 15.4 做了 25 项能力测试，反复出现三类问题：
+Keynote 的脚本接口比看上去薄得多。我们对 iwork-mcp 0.8.8 + Keynote Creator Studio 15.4
+做了 25 项能力探测，反复撞到同样四堵墙：
 
 | 现象 | 根因 |
 |---|---|
@@ -19,20 +26,44 @@ Studio 15.4 做了 25 项能力测试，反复出现三类问题：
 | `make new image` / `make new table` / `make new movie` 报 `-10000` | 15.x 里这几个动词已损坏 |
 
 `keynote-kit` 绕过了这些问题，并补上了接口层从来没有的能力：**排版控制、带位置的原生表格、
-图表渲染、整页信息图**。
+图表渲染、整页信息图，以及一套真正能用的编辑 API**。
+
+## 速览
+
+```python
+from keynote_kit import Deck
+
+deck = Deck.create(theme="乳色纸")           # 1920×1080
+slide = deck.add_slide("空白")
+deck.add_text(slide, "标题文字", 150, 300, 1500, 120, size=84, color="#2B2420")
+deck.verify(slide, expect=1)                 # 回读页面，对不上就抛异常
+deck.export("./out/images", "images")
+```
+
+| | |
+|---|---|
+| **交付物** | 客户还能在 Keynote 里继续编辑的 `.key` 文件 |
+| **导入 PPTX** | 22 页的稿子 4 秒，还原度 95.4%，组合形状和视频都保留 |
+| **改已有稿** | 文字、几何、表格、备注、转场、整稿换字体 |
+| **MCP 服务** | 53 个工具，不需要再装别的 MCP |
+| **自检** | `tools/test_capabilities.py`——对着真机跑 20 项断言 |
 
 ## 能力一览
 
-| 模块 | 能力 |
+| 模块 | 能做什么 |
 |---|---|
 | 文档 | 按主题与自定义画布尺寸创建；接管已打开文档 |
-| 页面 | 用任意母版追加（安全追加，不会覆盖相邻页） |
-| 文本 | 真正的文本框，坐标 / 字号 / 颜色 / 字体可控 |
+| 页面 | 用任意母版追加（安全追加，不覆盖相邻页）；复制；删除；换母版 |
+| 文本 | 真正的文本框，坐标 / 字号 / 颜色 / 字体可控；逐段设置样式 |
 | 形状 | 主题填充的形状 + 可设样式标签 |
-| 图片 | 支持透明 PNG、大图、整页背景 |
-| 表格 | 原生可编辑表格，建表、填充、定位、定尺寸 |
+| 图片 | 透明 PNG、大图、整页背景、圆角与裁剪预渲染 |
+| 表格 | 原生可编辑表格——建表、填充、定位、定尺寸、合并单元格 |
 | 图表 | matplotlib 渲染柱状 / 折线 / 环形，透明背景 |
 | 信息图 | 泳道图、层级图、双端集成图 |
+| 打磨 | 圆角裁剪、文本自适应、z 序、透明度、旋转、超链接、转场 |
+| 编辑 | 重写文字、移动缩放任意元素、一次调用整稿换字体 |
+| 线与备注 | 直线连接符、每页演讲者备注 |
+| PDF | `export_pdf()` 用 PNG 合成，绕开 Keynote 的空白页 bug |
 | 安全 | `verify()` 回读页面，静默失败立刻暴露 |
 | 导出 | 逐页 PNG、PowerPoint、PDF、`.key` |
 
@@ -88,7 +119,7 @@ python -m keynote_kit.cli export --doc 未命名 --fmt images --out ./out
 ![卡片](docs/assets/demo-cards.png)
 ![图表](docs/assets/demo-charts.png)
 
-*以上页面均由 `examples/02_demo_deck.py` 生成。*
+*以上三页均由 `examples/02_demo_deck.py` 生成。*
 
 ## 声明式建页（首选）
 
@@ -134,12 +165,57 @@ apply_page(deck, 1, {"elements": [
 slot 页会跳过 `clear`，也跳过背景图（占位符在 z 序最底部，整页图会盖住它们）。
 `card` 只用来做纯装饰的色块。
 
-设计、实测与已知限制见 [docs/rfc/0001-declarative-pages.md](docs/rfc/0001-declarative-pages.md)。
+## 处理真实稿件
+
+方案稿反复复用——结构不变，换客户、换数字。**走导入，不要重建。**
+实测一份 22 页真实稿（74 个组合形状、122 个自动图形）：
+
+| 路线 | 耗时 | 与源文件的相似度 |
+|---|---|---|
+| **原生导入** | **4 秒** | **95.4%** |
+| spec 重建 | 596 秒 | 89.5%（最低页 49.9%） |
+
+两个维度原生导入都赢。所以真实稿的做法是：**导入之后只改内容，不动几何**。
+重建会丢掉自动图形的填充色（深色面板变白板）、自由曲线，以及组合形状的变换。
+
+```bash
+# 1) 导入
+osascript -e 'tell application "Keynote" to open POSIX file "/path/deck.pptx"'
+
+# 2) 改措辞，格式不动
+python tools/replace_text.py "文稿名" --map rules.json --dry-run
+python tools/replace_text.py "文稿名" --map rules.json
+
+# 3) 体检并导出
+python tools/audit_styles.py --doc "文稿名"
+```
+
+`replace_text.py` 会先记录每一段的字号 / 字体 / 颜色，替换后再还原——
+直接整体赋值 `object text` 会把 118pt 标题和 66pt 副标题压成同一个字号。
+**烤进图片里的品牌名**（截图、流程图）文本替换够不着，只能重做。
+
+### 先查字体，再谈还原度
+
+缺字体会给任何一次转换设上限：Keynote **和**参考渲染器都会静默换成替代字体，
+而两边的替代字体还不一样——于是像素比对量到的是「两个替代字体之差」，不是设计。
+
+```bash
+unzip -o deck.pptx -d /tmp/x
+grep -oh 'typeface="[^"]*"' /tmp/x/ppt/slides/*.xml | sort | uniq -c | sort -rn
+```
+
+`HarmonyOS Sans SC` 免费且 Apache-2.0 协议（<https://github.com/huawei-fonts/HarmonyOS-Sans>）。
+
+### 比对两版渲染
+
+```bash
+soffice --headless --convert-to pdf deck.pptx && pdftoppm -png -r 72 deck.pdf /tmp/ref
+python tools/compare.py /tmp/ref /tmp/out --min 90
+```
+
+输出每页的平均 / 中位 / 最低相似度，低于 `--min` 时返回非零退出码。
 
 ## 视觉打磨
-
-Keynote 没有裁剪、autoFit、z-index、超链接这些接口，所以这些要么本地算好，
-要么预渲染成 PNG 再插进去。
 
 ```python
 {"type": "image", "path": "photo.jpg", "box": [60, 160, 700, 350],
@@ -157,9 +233,12 @@ set_opacity(doc, slide, "image", 1, 0.4)
 bring_to_front(doc, slide, "image", 1, "/path/to/image.png")
 ```
 
+Keynote 没有裁剪、autoFit、z-index、超链接这些接口，所以要么本地算好，
+要么预渲染成 PNG 再插进去。
+
 `style.fit` 有三种取值：`"auto"`（默认，只在真会出框时才缩）、`True`（强制缩到装得下）、
-`False`（不干预）。默认不是 `True`，因为 Keynote 文本框不裁切，很多标题就是**故意**
-放在比文字矮的框里，一律缩会把版式毁掉。
+`False`（不干预）。默认不是 `True`，因为 Keynote 文本框不裁切——
+把 96pt 标题放在故意只有 60pt 的框里是设计选择，不是 bug。
 
 ### 用「拆页 + 转场」替代构建动画
 
@@ -176,63 +255,44 @@ build_reveal(deck, slide=4, spec=SPEC,
 
 全程原生 Keynote，不碰 UI 自动化。
 
-## 客户换稿（把 A 客户的方案变成 B 客户）
+## 编辑能力
 
-方案稿反复复用——结构不变，换客户、换数字。**走导入，不要重建。**
-实测一份 22 页真实稿（74 个组合形状、122 个自动图形）：
+`tools/probe_editing.py` 专门探测**改**（而不是造）的能力，每一项都**回读验证**。
+当前状态：
 
-| 路线 | 耗时 | 与源文件的相似度 |
+| 操作 | 结论 | 备注 |
 |---|---|---|
-| **原生导入** | **4 秒** | **95.4%** |
-| spec 重建 | 596 秒 | 89.5%（最低页 49.9%） |
+| 替换文本框内容 | ✅ | 段落的字号 / 字体 / 颜色都保留 |
+| 加一段 / 删一段 | ✅ | `set object text to a & return & b` |
+| 移动元素 | ✅ | |
+| 改尺寸 | ✅ | |
+| 删除元素 | ✅ | |
+| 改段落字号 / 颜色 / 字体 | ✅ **只能走 JXA** | AppleScript 的 `paragraph` 类**没有任何属性** |
+| 改表格单元格文字 | ✅ | |
+| 合并 / 取消合并单元格 | ✅ | `merge (range "A1:B1" of table 1 of slide N of it)` |
+| 增删表格行 | ❌ | sdef 里根本没有这个命令 |
+| 单元格颜色、行高 | ❌ | |
+| 复制文本框 / 图片 | ❌ | `Text items can not be copied. (-1717)` |
+| 转场、透明度、旋转 | ✅ | 旋转只支持形状和图片，文本框不行 |
+| 增页 / 删页 / 复制页 | ✅ | |
+| 演讲者备注 | ✅ | `presenter notes of slide N` |
+| 换母版 | ✅ | `base layout of slide N` |
+| 隐藏标题占位符 | ✅ | `title showing of slide N` |
+| 幻灯片背景填充 | ❌ | 只读 |
+| 改画布尺寸 | ✅ | |
+| 整稿换字体 | ✅ | |
+| 改文档名 | ✅ **只能走 JXA** | AppleScript 拒绝 |
+| 段落对齐 | ❌ | 在创建时用 RTF 定好 |
+| 构建动画 | ❌ | 无 API，用**拆页揭示**代替 |
 
-两个维度原生导入都赢。重建会丢掉自动图形的填充色（深色面板变白板）、自由曲线，
-以及组合形状的变换。所以真实稿只换**内容**，不动几何。
-
-```bash
-# 1) 原生导入（434 MB / 59 页的稿子 13 秒，96.5% 像素还原度，视频全保留）
-osascript -e 'tell application "Keynote" to open POSIX file "/path/deck.pptx"'
-
-# 2) 改措辞，格式不动
-python tools/replace_text.py "文稿名" --map rules.json --dry-run
-python tools/replace_text.py "文稿名" --map rules.json
-
-# 3) 逐页导出，重点看图片多的页
-```
-
-`replace_text.py` 会先记录每一段的字号 / 字体 / 颜色，替换后再还原——
-直接整体赋值 `object text` 会把 118pt 标题和 66pt 副标题压成同一个字号。
-**烤进图片里的品牌名**（截图、流程图）文本替换够不着，只能重做。
-
-完整清单见 [docs/client-swap.zh-CN.md](docs/client-swap.zh-CN.md)。
-
-### 先查字体，再谈还原度
-
-缺字体会给任何一次转换设上限：Keynote **和**参考渲染器都会静默换成替代字体，
-而两边的替代字体还不一样——于是像素比对量到的是「两个替代字体之差」，不是设计。
-
-```bash
-unzip -o deck.pptx -d /tmp/x
-grep -oh 'typeface="[^"]*"' /tmp/x/ppt/slides/*.xml | sort | uniq -c | sort -rn
-```
-
-`HarmonyOS Sans SC` 免费且 Apache-2.0 协议（<https://github.com/huawei-fonts/HarmonyOS-Sans>），
-压缩包走 Git LFS，要从 `media.githubusercontent.com/media/<owner>/<repo>/<ref>/<path>` 取。
-
-### 审计与比对现有文稿
-
-```bash
-python tools/audit_styles.py ~/Desktop/deck.key          # 样式问题体检
-python tools/compare.py /tmp/ref /tmp/out --min 90        # 逐页相似度，可接 CI
-```
-
-`audit_styles.py` 会找出：多段同号（样式落错对象的特征）、零尺寸元素、空文本框、疑似超框。
-`compare.py` 输出平均 / 中位 / 最低相似度，低于 `--min` 时返回非零退出码。
+两个坑值得记住：颜色的**设置**收 `0–65535`，但**回读**给的是 `0–1` 浮点；
+还有 `slide.textItems[length - 1]` **不是**你刚创建的元素——母版占位符排在后面，
+所以永远要对局部引用设样式。
 
 ## 压缩已有文稿
 
-Keynote 没有"减少文件大小"的接口。`tools/compress_deck.py` 重写包内媒体（视频重编码 + 图片重采样），
-并通过"两份文稿逐页渲染比对"来验收。
+Keynote 没有「减少文件大小」的接口。`tools/compress_deck.py` 重写包内媒体
+（视频重编码 + 图片重采样），并通过「两份文稿逐页渲染比对」来验收：
 
 ```bash
 python tools/compress_deck.py 原稿.key -o 压缩版.key --verify 原稿.key
@@ -243,8 +303,8 @@ python tools/compress_deck.py 原稿.key -o 压缩版.key --verify 原稿.key
 
 ## MCP 服务
 
-`keynote-kit` 自带**完整**的 MCP 服务，**不需要再装 iwork-mcp 或任何其他 MCP**。53 个工具覆盖
-文档、页面、文本、形状、图片、表格、图表、信息图、版式、备注、导出与放映控制。
+`keynote-kit` 自带**完整**的 MCP 服务，**不需要再装 iwork-mcp 或任何其他 MCP**。
+53 个工具覆盖文档、页面、文本、形状、图片、表格、图表、信息图、版式、备注、导出与放映控制。
 
 ```bash
 python -m keynote_kit.mcp_server
@@ -258,13 +318,13 @@ python -m keynote_kit.mcp_server
 }
 ```
 
-完整工具清单与各客户端配置：[docs/mcp-server.md](docs/mcp-server.md)。
+完整工具清单与各客户端配置：[docs/mcp-server.zh-CN.md](docs/mcp-server.zh-CN.md)。
 
 ## 文档
 
 | 文档 | 中文 | English | 内容 |
 |---|---|---|---|
-| 能力矩阵 | [中文](docs/capabilities.zh-CN.md) | [EN](docs/capabilities.md) | 29 项：keynote-kit vs iwork-mcp vs 原生脚本 |
+| 能力矩阵 | [中文](docs/capabilities.zh-CN.md) | [EN](docs/capabilities.md) | Keynote 能做什么、不能做什么，逐条列清 |
 | 踩坑手册 | [中文](docs/gotchas.zh-CN.md) | [EN](docs/gotchas.md) | 17 个 Keynote 脚本缺陷与解法 |
 | MCP 服务 | [中文](docs/mcp-server.zh-CN.md) | [EN](docs/mcp-server.md) | 53 个工具、客户端配置、迁移对照 |
 | 信息图 | [中文](docs/diagrams.zh-CN.md) | [EN](docs/diagrams.md) | 泳道图 / 层级图 / 集成图的数据结构 |
@@ -275,15 +335,6 @@ python -m keynote_kit.mcp_server
 | MCP 共存 | [中文](docs/mcp-integration.zh-CN.md) | [EN](docs/mcp-integration.md) | 与其他 MCP 服务器并用 |
 | 示例 | — | [examples/](examples/) | 可直接运行的示例 |
 
-## 已知限制
-
-以下能力 Keynote 完全没有开放接口，只能靠 UI 自动化或等原生 MCP：
-
-- 动画 / 构建效果（用「拆页 + 转场」代替，见上）
-- 图片裁剪与遮罩（我们本地预渲染成 PNG 绕过去）
-- 单页背景填充与母版编辑（`slide layout` 只读）
-- 表格填充色（只能改单元格文字颜色）
-
 ## 项目结构
 
 ```
@@ -293,15 +344,28 @@ keynote_kit/
   charts.py      matplotlib 图表（透明底、支持中文）
   diagrams.py    泳道图、层级图、集成图渲染器
   page.py        声明式整页 spec 的编译与校验
-  imaging.py     图片圆角 / 椭圆 / 裁剪预渲染，文本度量
+  imaging.py     图片圆角 / 裁剪预渲染，文本度量与自动缩放
   animate.py     转场、透明度、旋转、z 序
   build.py       拆页揭示（替代构建动画）
   cli.py         输出 JSON 的命令行
 examples/        可直接运行的示例
-tools/           能力探测、文档体检、逐页比对、MCP 客户端
+tools/           能力探测、文稿体检、逐页比对、MCP 客户端
 docs/            能力矩阵、踩坑手册、质量指南、MCP 集成说明
 tests/           冒烟测试（需要 Keynote）
 ```
+
+## 已知限制
+
+| 想做的事 | 现实 |
+|---|---|
+| 构建动画（逐个出现 / 飞入） | 无 API，用**拆页揭示**代替 |
+| 图片裁剪与遮罩 | 无 API，本地预渲染绕过去 |
+| 单页背景填充、母版编辑 | 脚本层没有 API（`slide layout` 只读） |
+| 表格单元格配色、行高、增删行 | 没开放 |
+| 段落对齐 | 在创建时用 RTF 定好 |
+| 复制元素 | 文本框和图片的 `duplicate` 都会失败 |
+
+完整清单见 [docs/gotchas.zh-CN.md](docs/gotchas.zh-CN.md)。
 
 ## 路线图
 

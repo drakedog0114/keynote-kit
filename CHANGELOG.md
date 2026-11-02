@@ -150,6 +150,41 @@ Documentation sync: the Chinese README had fallen behind the English one, and tw
   (now 20 assertions), so a missing translation fails the test run rather than being
   noticed months later.
 
+## [0.6.0] - 2026-11-02
+
+Public release: rewritten READMEs, an editing-capability matrix, and no client names.
+
+### Added
+- **`tools/probe_editing.py`** — probes *editing* operations (as opposed to creating) against
+  the real app: rewriting text, moving and resizing elements, deleting, table cell edits,
+  merge/unmerge, speaker notes, master layout, canvas size, whole-deck font swap, and more.
+  Every check **reads the value back** instead of trusting "no exception". The probe
+  re-creates its document if a failed operation wedges Keynote, so one failure cannot take
+  the whole table down.
+- **Editing capability matrix** in both READMEs and in `docs/capabilities.*` — what can be
+  changed, and through which dialect (AppleScript vs JXA).
+
+### New findings
+
+- The AppleScript `paragraph` class exposes **no properties at all** — colour, size and font
+  can only be set through JXA. The same is true of a document's `name`.
+- The colour **setter** takes `0–65535` but the **getter** returns `0–1` floats.
+- Tables support `merge` / `unmerge` on a `range`, but there is **no command to add or remove
+  rows**, and no cell colour or row height.
+- `duplicate` fails for both text items and images (`can not be copied. (-1717)`).
+- Rotation works on shapes and images but **not on text boxes**.
+- Slide background fill is read-only; the master layout is switched with `base layout`, and
+  the title placeholder can be hidden with `title showing`.
+
+### Changed
+- **Both READMEs rewritten** (19 sections each, mirrored): clearer positioning, badges, an
+  "At a glance" summary, the real-deck workflow with measured numbers, the editing matrix,
+  and a full documentation table. The Chinese one had fallen behind again, so
+  `tools/check_docs.py` now verifies the section mapping for both.
+- **Client names removed** from every file — the repository is now public, so real client and
+  brand names had to go. They are replaced by generic placeholders (`甲珠宝` / `乙珠宝`,
+  `某宠物品牌`, `零售平台`).
+
 ## [Unreleased]
 
 ### Planned
